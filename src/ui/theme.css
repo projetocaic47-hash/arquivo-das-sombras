@@ -1,0 +1,36 @@
+/* Identidade visual herdada do HTML original */
+:root {
+  --ink: #d5cabc;
+  --soft: #8c8272;
+  --gold: #c5a059;
+  --wine: #8a3a46;
+  --pale: #a8a090;
+  --h: 'Cinzel', Georgia, serif;
+  --b: 'Crimson Pro', Georgia, serif;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+html, body, #root { height: 100%; margin: 0; }
+body { background: #050403; color: var(--pale); font-family: var(--b); font-size: 18px; }
+.scene { position: fixed !important; inset: 0; }
+.panel { position: relative; max-width: 720px; margin: 0 auto; padding: 48px 16px; }
+.panel header { text-align: center; color: var(--gold); }
+.panel header small { letter-spacing: 0.5em; opacity: 0.8; }
+.panel h1 { font: 600 clamp(1.6rem, 5vw, 2.4rem) / 1.2 var(--h); letter-spacing: 0.12em; margin: 16px 0 8px; }
+.phrase { font-style: italic; opacity: 0.8; margin: 0 0 24px; }
+.stats, .note { text-align: center; color: var(--soft); font-size: 0.95rem; }
+.warn { background: #3b1c1c; color: #e8c9c0; padding: 8px 12px; }
+.row { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; margin: 16px 0; }
+button {
+  font: 600 0.72rem var(--h); letter-spacing: 0.15em; text-transform: uppercase;
+  background: rgba(0, 0, 0, 0.55); color: var(--gold); border: 1px solid rgba(197, 160, 89, 0.45);
+  padding: 9px 14px; cursor: pointer;
+}
+button:hover { border-color: var(--gold); }
+:focus-visible { outline: 2px solid var(--wine); outline-offset: 2px; }
+.list { list-style: none; padding: 0; margin: 0; background: rgba(10, 8, 6, 0.75); }
+.list li { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px; padding: 10px 14px; border-bottom: 1px solid rgba(213, 202, 188, 0.12); color: var(--ink); }
+.list i { color: var(--soft); font-size: 0.9rem; }
+.overlay { position: fixed; inset: 0; background: rgba(5, 3, 2, 0.88); display: flex; align-items: center; justify-content: center; padding: 16px; z-index: 10; }
+.modal { background: #17140f; color: var(--ink); border: 1px solid #3a2c1c; padding: 22px; width: min(560px, 100%); }
+.modal .row { justify-content: flex-start; margin-bottom: 0; }
