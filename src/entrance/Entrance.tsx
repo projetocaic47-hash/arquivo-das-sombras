@@ -205,6 +205,10 @@ export function Entrance({ onEnter }: { onEnter: () => void }) {
       g.globalAlpha = 1
       g.clearRect(0, 0, IW, IH)
       g.drawImage(img, 0, 0, IW, IH)
+      // recorte da imagem em medidas da imagem original (o arquivo pode ser maior: ampliado)
+      const k = img.naturalWidth / IW
+      const part = (sx: number, sy: number, sw: number, sh: number, dx: number, dy: number, dw: number, dh: number) =>
+        g.drawImage(img, sx * k, sy * k, sw * k, sh * k, dx, dy, dw, dh)
 
       // ---- porta: tremor das batidas ou abertura ----
       const opening = f.openAt >= 0
@@ -216,7 +220,7 @@ export function Entrance({ onEnter }: { onEnter: () => void }) {
       if (shake) {
         g.fillStyle = '#050403'
         g.fillRect(DOOR.x0, DOOR.y0, dw, dh)
-        g.drawImage(img, DOOR.x0, DOOR.y0, dw, dh, DOOR.x0 + shake, DOOR.y0, dw, dh)
+        part(DOOR.x0, DOOR.y0, dw, dh, DOOR.x0 + shake, DOOR.y0, dw, dh)
       }
       if (opening) {
         // o vão da porta: escuro no começo, e aos poucos o app aparece por ele
@@ -226,7 +230,7 @@ export function Entrance({ onEnter }: { onEnter: () => void }) {
         g.fillRect(DOOR.x0, DOOR.y0, dw, dh)
         if (rm) {
           g.globalAlpha = Math.max(0, 1 - t)
-          g.drawImage(img, DOOR.x0, DOOR.y0, dw, dh, DOOR.x0, DOOR.y0, dw, dh)
+          part(DOOR.x0, DOOR.y0, dw, dh, DOOR.x0, DOOR.y0, dw, dh)
           g.globalAlpha = 1
         } else {
           // folha girando na dobradiça da esquerda, para dentro: cada coluna de 4 px da
@@ -247,7 +251,7 @@ export function Entrance({ onEnter }: { onEnter: () => void }) {
             const X = snap(x0)
             const Y = snap(top)
             const Wd = Math.max(PX, snap(x0 + w) - X)
-            g.drawImage(img, DOOR.x0 + sx, DOOR.y0, u1 - u0, dh, X, Y, Wd, snap(top + h) - Y)
+            part(DOOR.x0 + sx, DOOR.y0, u1 - u0, dh, X, Y, Wd, snap(top + h) - Y)
             // quanto mais virada, menos luz recebe a madeira
             g.fillStyle = `rgba(0,0,0,${Math.min(0.75, sin * 0.55 + (u0 / dw) * sin * 0.2)})`
             g.fillRect(X, Y, Wd, snap(top + h) - Y)
@@ -267,7 +271,7 @@ export function Entrance({ onEnter }: { onEnter: () => void }) {
         g.translate(POSTER.x + POSTER.w / 2, POSTER.y)
         g.rotate(k * 0.035)
         g.filter = `brightness(${1 + 0.35 * Math.max(0, 1 - pt / 1.2)})`
-        g.drawImage(img, POSTER.x, POSTER.y, POSTER.w, POSTER.h, -POSTER.w / 2, 0, POSTER.w, POSTER.h)
+        part(POSTER.x, POSTER.y, POSTER.w, POSTER.h, -POSTER.w / 2, 0, POSTER.w, POSTER.h)
         g.restore()
         g.filter = 'none'
       }
