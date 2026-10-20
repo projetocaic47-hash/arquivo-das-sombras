@@ -3,9 +3,9 @@
 Reconstrução do `Arquivo das Sombras (1).html` em React + TypeScript + three.js.
 O HTML original continua intocado na pasta do projeto e é a referência.
 
-**Estado atual: Fase 2 (estrutura).** A aplicação abre, lê o mesmo banco do
-original e importa ou exporta backups. O quarto 3D começa na Fase 3; por
-enquanto a cena é só um teste de que o 3D funciona no navegador.
+**Estado atual: Fase 3 (protótipo do quarto).** A tela mostra o quarto 3D:
+parede, mesa, janela com chuva e relâmpagos, vela e livro fechado. O painel de
+dados da Fase 2 abre pelo botão "Acervo". O livro abre e folheia na Fase 4.
 
 ## Como rodar (para quem desenvolve)
 
@@ -16,7 +16,9 @@ npm install        # instala as dependências (uma vez)
 npm run dev        # abre em http://localhost:5173
 npm run build      # verifica tipos e gera a versão final em dist/
 npm test           # testes automáticos do banco e do backup
+node scripts/gen-textures.mjs   # regera as texturas de public/textures (só se mudar o gerador)
 node e2e/compat.mjs "../Arquivo das Sombras (1).html"   # teste com o original, após npm run build
+node e2e/shots.mjs # capturas do quarto em e2e/out, com npx vite preview --port 4173 rodando
 ```
 
 A pasta `dist/` precisa ser servida por um servidor web (por exemplo
@@ -29,7 +31,9 @@ A pasta `dist/` precisa ser servida por um servidor web (por exemplo
 | `src/data/` | tipos dos registros, acesso ao IndexedDB, backup e restauração |
 | `src/state/` | estado do acervo em memória ligado ao banco |
 | `src/ui/` | interface (por enquanto, um painel provisório de dados) |
-| `src/scene/` | cena 3D (vazia até a Fase 3) |
+| `src/scene/` | cena 3D: `objects/` (quarto, mesa, janela, vela, livro), `shaders/` (vista da janela, chama), `layout.ts` (medidas em metros), `atmosphere.ts` (tremor da vela e relâmpagos) |
+| `scripts/` | gerador das texturas PBR (madeira, gesso, couro, papel), feitas por código e sem licença de terceiros |
+| `public/textures/` | texturas geradas |
 | `tests/` | testes automáticos (Vitest + fake-indexeddb) |
 | `e2e/` | teste de compatibilidade com o HTML original em Chromium |
 | `docs/DADOS.md` | formato do banco e regras de compatibilidade |
