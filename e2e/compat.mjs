@@ -65,10 +65,13 @@ const originalStories = await o.evaluate(() => JSON.parse(JSON.stringify(S)))
 const originalBackup = await o.evaluate(() => JSON.stringify({ app: 'arquivo-das-sombras', v: 1, exported: new Date().toISOString(), config: C, stories: S }, null, 1))
 await o.close()
 
+// Desde a Fase 3 o painel de dados fica atrás do botão "Acervo", por cima do quarto 3D
+const openPanel = async (pg) => { await pg.click('.topbar button:has-text("Acervo")'); await pg.waitForSelector('[data-testid=stats]') }
+
 // 2. A nova app, no mesmo endereço, enxerga exatamente esses dados
 const n = await page(ctx)
 await n.goto(base + '/')
-await n.waitForSelector('[data-testid=stats]')
+await openPanel(n)
 const stats = await n.textContent('[data-testid=stats]')
 check(stats.startsWith('2 histórias'), 'nova app conta 2 histórias visíveis: ' + stats)
 check(stats.includes('1 rascunhos') && stats.includes('1 na lixeira'), 'rascunho e lixeira reconhecidos')
@@ -103,7 +106,7 @@ await o2.close()
 const ctx3 = await browser.newContext({ viewport: { width: 390, height: 844 } })
 const n3 = await page(ctx3)
 await n3.goto(base + '/')
-await n3.waitForSelector('[data-testid=stats]')
+await openPanel(n3)
 check((await n3.textContent('[data-testid=stats]')).startsWith('0 histórias'), 'navegador novo começa vazio')
 const [chooser] = await Promise.all([n3.waitForEvent('filechooser'), n3.click('text=Restaurar backup')])
 await chooser.setFiles({ name: 'backup.json', mimeType: 'application/json', buffer: Buffer.from(originalBackup) })
@@ -114,7 +117,7 @@ check((await n3.textContent('[data-testid=stats]')).startsWith('2 histórias'), 
 check((await n3.textContent('h1')) === 'ACERVO DE TESTE', 'configuração restaurada junto')
 // recarregar: os dados persistem
 await n3.reload()
-await n3.waitForSelector('[data-testid=stats]')
+await openPanel(n3)
 check((await n3.textContent('[data-testid=stats]')).startsWith('2 histórias'), 'dados continuam após recarregar')
 await n3.screenshot({ path: join(out, 'nova-app-celular.png') })
 // arquivo inválido não altera nada

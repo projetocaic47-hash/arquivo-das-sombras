@@ -6,9 +6,9 @@ export default defineConfig({
   base: './',
   plugins: [react()],
   build: {
-    // O pedaço da cena 3D tem ~900 KB (240 KB comprimido), quase todo do próprio three.js,
+    // O pedaço da cena 3D tem ~1,25 MB (375 KB comprimido): three.js, R3F, drei e pós-processamento,
     // e já é carregado à parte, depois dos dados. O aviso padrão de 500 KB não se aplica a ele.
-    chunkSizeWarningLimit: 1000,
+    chunkSizeWarningLimit: 1400,
   },
   test: {
     environment: 'node',

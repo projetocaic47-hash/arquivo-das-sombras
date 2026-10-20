@@ -34,3 +34,12 @@ button:hover { border-color: var(--gold); }
 .overlay { position: fixed; inset: 0; background: rgba(5, 3, 2, 0.88); display: flex; align-items: center; justify-content: center; padding: 16px; z-index: 10; }
 .modal { background: #17140f; color: var(--ink); border: 1px solid #3a2c1c; padding: 22px; width: min(560px, 100%); }
 .modal .row { justify-content: flex-start; margin-bottom: 0; }
+
+/* Fase 3: cena em tela cheia, acervo provisório em painel */
+.loading { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; background: #020203; color: var(--soft); font-style: italic; letter-spacing: 0.1em; transition: opacity 1.6s ease; z-index: 5; pointer-events: none; }
+.loading.done { opacity: 0; }
+.topbar { position: fixed; top: 12px; right: 12px; z-index: 6; }
+.phase-tag { position: fixed; left: 12px; bottom: 8px; margin: 0; font-size: 0.75rem; color: rgba(168, 160, 144, 0.45); z-index: 6; letter-spacing: 0.08em; }
+.sheet { position: relative; background: rgba(12, 10, 8, 0.96); border: 1px solid #3a2c1c; width: min(760px, 100%); max-height: 92vh; overflow: auto; }
+.sheet .panel { padding-top: 32px; }
+.sheet .close { position: absolute; top: 10px; right: 10px; }

@@ -16,7 +16,8 @@ function download(name: string, text: string) {
   document.body.appendChild(a)
   a.click()
   a.remove()
-  setTimeout(() => URL.revokeObjectURL(a.href), 1000)
+  // Prazo folgado: com o quarto 3D ocupando a tela, aparelhos lentos podem demorar a iniciar o download.
+  setTimeout(() => URL.revokeObjectURL(a.href), 60_000)
 }
 
 /**
