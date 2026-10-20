@@ -78,6 +78,17 @@ async function run(name, vp) {
   await p.waitForTimeout(1500)
   await shot(p, `${name}-6-indice`)
 
+  // pular a história inteira: do índice para a primeira história, depois para a segunda e de volta
+  const idle = () => until(p, () => !window.__book.turn && !window.__book.jump)
+  const spreadNow = () => p.evaluate(() => window.__book.spread)
+  await p.click('.bookbar button:has-text("história »")'); await idle()
+  const s1 = await spreadNow()
+  await p.click('.bookbar button:has-text("história »")'); await idle()
+  const s2 = await spreadNow()
+  await p.click('.bookbar button:has-text("« história")'); await idle()
+  const s3 = await spreadNow()
+  check(s1 === 2 && s2 > s1 + 1 && s3 === s1, `pular história: índice → ${s1} → ${s2} → volta a ${s3}`)
+
   // fechar e ver "Continuar leitura" e o marcador na barra
   await p.click('.bookbar button:has-text("Fechar")')
   await until(p, () => window.__book.cover === 0)

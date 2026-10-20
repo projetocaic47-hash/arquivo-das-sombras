@@ -1,22 +1,22 @@
-import '@fontsource/pixelify-sans/latin-600.css'
-import '@fontsource/pixelify-sans/latin-ext-600.css'
+import '@fontsource/jersey-10/latin-400.css'
+import '@fontsource/jersey-10/latin-ext-400.css'
 import '@fontsource/jacquarda-bastarda-9/latin-400.css'
 import '@fontsource/jacquarda-bastarda-9/latin-ext-400.css'
 import * as THREE from 'three'
 import type { Config } from '../../data/types'
 import type { BookPage, PageMetrics } from '../../book/pages'
 
-// Desenho das páginas do livro em textura, com letra em pixel: Pixelify Sans no texto
+// Desenho das páginas do livro em textura, com letra em pixel: Jersey 10 no texto
 // e Jacquarda Bastarda 9 (gótica pixelada) nos títulos, ambas com licença OFL.
 
 /** Tamanho da textura de uma página, na proporção da página 3D (0,17 × 0,245 m). */
 export const PW = 400
 export const PH = 576
 const M = { gutter: 34, outer: 26, top: 38, bottom: 50 }
-// peso 600: traço mais grosso, que resiste a ser reduzido para poucos pixels
-// texto em peso 600: traço mais grosso, que resiste a ser reduzido para poucos pixels
-const BODY = `"Pixelify Sans", monospace`
-const GOTHIC = `"Jacquarda Bastarda 9", "Pixelify Sans", serif`
+const BODY = `"Jersey 10", monospace`
+/** tamanho (px) em que um pixel do desenho da Jersey 10 vira um pixel da textura */
+export const JERSEY_PX = 1400 / 150
+const GOTHIC = `"Jacquarda Bastarda 9", "Jersey 10", serif`
 const C = { paper: '#ddd2b4', paper2: '#b3a483', ink: '#1c150e', soft: '#463b2c', wine: '#8a3a46', gold: '#9a7a3a' }
 
 export interface PageStyle {
@@ -27,16 +27,18 @@ export interface PageStyle {
 }
 
 export function pageStyle(cfg: Config): PageStyle {
-  const font = Math.round(Math.min(28, Math.max(15, cfg.fs || 19)))
+  // Jersey 10 é uma fonte de pixel estreita, desenhada para tamanhos pequenos: no
+  // tamanho padrão (19) cada pixel dela vira cerca de dois pixels da arte do quarto
+  const font = Math.round(Math.min(28, Math.max(15, cfg.fs || 19)) * 1.45)
   // a fonte gótica é desenhada numa grade de 9 px: múltiplos de 9 ficam nítidos
-  return { font, line: Math.round(font * 1.45), title: font >= 18 ? 45 : 36 }
+  return { font, line: Math.round(font * 1.18), title: font >= 26 ? 45 : 36 }
 }
 
 let fontsReady: Promise<unknown> | null = null
 /** As fontes precisam estar carregadas antes de medir e paginar. */
 export function loadPageFonts() {
   fontsReady ??= Promise.all([
-    document.fonts.load(`600 16px ${BODY}`, 'Áá'),
+    document.fonts.load(`16px ${BODY}`, 'Áá'),
     document.fonts.load(`36px ${GOTHIC}`, 'Áá'),
   ]).catch(() => undefined)
   return fontsReady
@@ -88,7 +90,7 @@ function drawText(ctx: CanvasRenderingContext2D, t: string, x: number, y: number
 /** Letra dos títulos: a gótica, exceto em textos todos em maiúsculas, que nela ficam ilegíveis. */
 function titleFont(text: string, st: PageStyle) {
   const caps = /\p{Lu}/u.test(text) && text === text.toLocaleUpperCase('pt-BR')
-  return caps ? `600 ${Math.round(st.title * 0.62)}px ${BODY}` : `${st.title}px ${GOTHIC}`
+  return caps ? `${Math.round(st.title * 0.62)}px ${BODY}` : `${st.title}px ${GOTHIC}`
 }
 
 function titleLines(ctx: CanvasRenderingContext2D, title: string, st: PageStyle) {
@@ -120,7 +122,7 @@ export function pageMetrics(st: PageStyle): PageMetrics {
       return t + (s.sub ? st.line + 4 : 0) + (s.draft ? st.line : 0) + 22
     },
     measure: (t) => {
-      ctx.font = `600 ${st.font}px ${BODY}`
+      ctx.font = `${st.font}px ${BODY}`
       return textWidth(ctx, t)
     },
     indent: Math.round(st.font * 1.6),
@@ -171,7 +173,7 @@ function ornament(ctx: CanvasRenderingContext2D, cx: number, y: number, color: s
 
 function pageNumber(ctx: CanvasRenderingContext2D, n: number, st: PageStyle) {
   ctx.fillStyle = C.soft
-  ctx.font = `600 ${Math.max(12, st.font - 2)}px ${BODY}`
+  ctx.font = `${Math.max(12, st.font - 2)}px ${BODY}`
   ctx.textAlign = 'center'
   ctx.fillText(`— ${n} —`, PW / 2, PH - 22)
   ctx.textAlign = 'left'
@@ -208,8 +210,10 @@ export function drawPage(
   cfg: Config,
   marked = false,
   hits: TocHit[] = [],
+  /** onde vai o papel; sem ele, papel e tinta vão juntos em `ctx` */
+  bg: CanvasRenderingContext2D = ctx,
 ) {
-  const gutterLeft = paper(ctx, index)
+  const gutterLeft = paper(bg, index)
   const left = gutterLeft ? M.gutter : M.outer
   const right = PW - (gutterLeft ? M.outer : M.gutter)
   const cx = (left + right) / 2
@@ -219,13 +223,13 @@ export function drawPage(
     ctx.textAlign = 'center'
     ornament(ctx, cx, 170, C.gold)
     ctx.fillStyle = C.soft
-    ctx.font = `600 ${st.font - 2}px ${BODY}`
+    ctx.font = `${st.font - 2}px ${BODY}`
     ctx.fillText('acervo de histórias', cx, 230)
     ctx.fillStyle = C.ink
     const name = titleLines(ctx, cfg.n || 'Arquivo das Sombras', st)
     name.forEach((l, i) => ctx.fillText(l, cx, 290 + i * Math.round(st.title * 0.95)))
     ctx.fillStyle = C.soft
-    ctx.font = `600 ${st.font}px ${BODY}`
+    ctx.font = `${st.font}px ${BODY}`
     const phrase = cfg.p || ''
     if (phrase) ctx.fillText(phrase.length > 44 ? phrase.slice(0, 43) + '…' : phrase, cx, 300 + name.length * Math.round(st.title * 0.95))
     ornament(ctx, cx, 420, C.gold)
@@ -239,12 +243,12 @@ export function drawPage(
       ctx.font = `${st.title}px ${GOTHIC}`
       ctx.fillText('Índice', left, y)
       ctx.fillStyle = C.soft
-      ctx.font = `600 ${st.font}px ${BODY}`
+      ctx.font = `${st.font}px ${BODY}`
       y += st.line + 4
       ctx.fillText(`${page.count} ${page.count === 1 ? 'história guardada' : 'histórias guardadas'}`, left, y)
       y += st.line + 14
     } else y = M.top + st.line
-    ctx.font = `600 ${st.font}px ${BODY}`
+    ctx.font = `${st.font}px ${BODY}`
     if (!page.entries.length) {
       ctx.fillStyle = C.soft
       ctx.fillText('Nenhuma história ainda.', left, y)
@@ -275,7 +279,7 @@ export function drawPage(
       y += Math.round(st.title * 0.95)
       ctx.fillText(l, left, y)
     }
-    ctx.font = `600 ${st.font}px ${BODY}`
+    ctx.font = `${st.font}px ${BODY}`
     if (page.sub) {
       y += st.line + 4
       ctx.fillStyle = C.soft
@@ -289,14 +293,14 @@ export function drawPage(
     y += 22
   } else {
     ctx.fillStyle = C.soft
-    ctx.font = `600 ${Math.max(12, st.font - 3)}px ${BODY}`
+    ctx.font = `${Math.max(12, st.font - 3)}px ${BODY}`
     y += 14
     ctx.fillText(page.title, left, y)
     ctx.fillRect(left, y + 8, right - left, 2)
     y += 16
   }
   if (marked) ribbon(ctx, gutterLeft ? PW - 20 : 6)
-  const body = `600 ${st.font}px ${BODY}`
+  const body = `${st.font}px ${BODY}`
   const base = (k: number) => y + (k + 1) * st.line - Math.round(st.line * 0.28)
   if (page.drop) {
     // letra capital: o alto acompanha as maiúsculas da primeira linha, a base senta na linha `lines`
@@ -332,6 +336,34 @@ export function drawPage(
   pageNumber(ctx, index, st)
 }
 
+/**
+ * Página desenhada com a tinta sem meios-tons: cada pixel de letra é tinta ou papel,
+ * como numa fonte de pixel desenhada à mão, numa escala em que os pixels da fonte caem
+ * inteiros na textura (ver BookModel).
+ */
+function inkedPage(draw: (ink: CanvasRenderingContext2D, paper: CanvasRenderingContext2D) => void, scale: number) {
+  const w = Math.round(PW * scale)
+  const h = Math.round(PH * scale)
+  const page = document.createElement('canvas')
+  page.width = w
+  page.height = h
+  const layer = document.createElement('canvas')
+  layer.width = w
+  layer.height = h
+  const bg = page.getContext('2d')!
+  const ink = layer.getContext('2d', { willReadFrequently: true })!
+  bg.scale(w / PW, h / PH)
+  ink.scale(w / PW, h / PH)
+  draw(ink, bg)
+  const img = ink.getImageData(0, 0, w, h)
+  const d = img.data
+  for (let i = 3; i < d.length; i += 4) d[i] = d[i] >= 100 ? 255 : 0
+  ink.putImageData(img, 0, 0)
+  bg.setTransform(1, 0, 0, 1, 0, 0)
+  bg.drawImage(layer, 0, 0)
+  return page
+}
+
 /** Texturas das páginas, criadas sob demanda e guardadas (poucas de cada vez). */
 export class PageTextures {
   private cache = new Map<number, THREE.CanvasTexture>()
@@ -340,11 +372,14 @@ export class PageTextures {
   private pages: BookPage[] = []
   private st: PageStyle
   private cfg: Config
+  /** pixels da textura por pixel da página (1 = 400 × 576) */
+  private scale = 1
   constructor(cfg: Config) {
     this.cfg = cfg
     this.st = pageStyle(cfg)
   }
-  set(pages: BookPage[], cfg: Config) {
+  set(pages: BookPage[], cfg: Config, scale = 1) {
+    this.scale = scale
     this.pages = pages
     this.cfg = cfg
     this.st = pageStyle(cfg)
@@ -373,11 +408,10 @@ export class PageTextures {
       this.cache.set(index, t)
       return t
     }
-    const c = document.createElement('canvas')
-    c.width = PW
-    c.height = PH
     const hits: TocHit[] = []
-    drawPage(c.getContext('2d')!, index, this.pages[index], this.st, this.cfg, this.marked.has(index), hits)
+    const c = inkedPage((ctx, bg) => {
+      drawPage(ctx, index, this.pages[index], this.st, this.cfg, this.marked.has(index), hits, bg)
+    }, this.scale)
     this.hits.set(index, hits)
     t = new THREE.CanvasTexture(c)
     t.colorSpace = THREE.SRGBColorSpace

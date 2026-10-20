@@ -5,11 +5,11 @@ import * as THREE from 'three'
 import { book } from '../../book/controller'
 import { spreadPages } from '../../book/pages'
 import type { Config } from '../../data/types'
-import { BOOK, BOOK_OPEN, DESK } from '../layout'
+import { BOOK, BOOK_OPEN, DESK, READ_HALF, READ_HALF_SINGLE } from '../layout'
 import { clearHover, clickable, outlineMaterial, useHovered } from '../hover'
-import { STYLE } from '../style'
+import { pixelSize, STYLE } from '../style'
 import { curlLeaf, easeTurn, gutterDip, restAngle, restProfile, type CurlParams } from './curl'
-import { PageTextures, PH } from './pageArt'
+import { JERSEY_PX, PageTextures, pageStyle, PH } from './pageArt'
 
 // Medidas do livro (m). A lombada fica em x = 0 do grupo; a metade direita vai para +x.
 const BOARD = 0.0035
@@ -237,8 +237,23 @@ export function BookModel({ config }: { config: Config }) {
   const lt = leafThickness(last)
   const textures = useMemo(() => new PageTextures(config), []) // eslint-disable-line react-hooks/exhaustive-deps
   // redesenha as páginas só quando muda o que aparece nelas (a posição de leitura não conta)
-  const artKey = JSON.stringify([config.n, config.p, config.fs, config.bm || []])
-  useEffect(() => textures.set(pages, config), [textures, pages, artKey]) // eslint-disable-line react-hooks/exhaustive-deps
+  // tamanho da textura das páginas (1 = 400 × 576), a partir de como a página aparece na tela
+  const size = useThree((s) => s.size)
+  const texScale = useMemo(() => {
+    if (STYLE !== 'pixel') return 1
+    const half = snap.single ? READ_HALF_SINGLE : READ_HALF
+    // a altura descontada é a das barras de botões
+    const pxPerMeter = Math.min(size.width / (2 * half.w), (size.height * 0.86) / (2 * half.h))
+    const art = (PAGE_H * pxPerMeter) / pixelSize(size.width, size.height)
+    // a letra sai num múltiplo inteiro do pixel da fonte Jersey 10, e pelo menos 3 vezes
+    // maior que a tela: reduzida pela placa de vídeo, fica com traço por igual em todas
+    // as palavras (testado: 1 ou 2 vezes deixa umas palavras grossas e outras falhadas)
+    const font = pageStyle(config).font
+    const n = Math.max(3, Math.round(((art / PH) * font) / JERSEY_PX))
+    return (n * JERSEY_PX) / font
+  }, [size.width, size.height, snap.single, config.fs]) // eslint-disable-line react-hooks/exhaustive-deps
+  const artKey = JSON.stringify([config.n, config.p, config.fs, config.bm || [], texScale])
+  useEffect(() => textures.set(pages, config, texScale), [textures, pages, artKey]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const outer = useRef<THREE.Group>(null)
   const rightMesh = useRef<THREE.Mesh>(null)

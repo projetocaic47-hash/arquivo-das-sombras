@@ -42,6 +42,11 @@ clique, setas ou arrastando a folha. Tudo o que o original fazia voltou:
 - Teclado: o foco entra nas janelas ao abrir, Tab circula dentro delas, Esc fecha (no
   editor, grava e fecha; nas perguntas, escolhe a opção que não muda nada).
 - "Reduzir animações" acalma também a vela, os relâmpagos, a câmera e a fumaça.
+- Letra das páginas: Jersey 10, fonte de pixel feita para tamanhos pequenos, desenhada
+  na textura em múltiplo inteiro do pixel dela e com tinta sem meios-tons, para ficar
+  nítida nas duas páginas, no computador e no celular.
+- Botões "« história" e "história »" no livro: pulam para o começo da história anterior
+  ou da próxima, sem virar página por página.
 - O livro aberto é enquadrado entre as barras de botões; no celular deitado, as
   barras ficam nas laterais.
 

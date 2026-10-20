@@ -12,3 +12,6 @@ export const BOOK = { x: -0.01, z: -0.8, rotY: -0.16, w: 0.17, h: 0.245, t: 0.04
  * do lugar em que está fechado (BOOK) para cá, como quem o puxa para perto.
  */
 export const BOOK_OPEN = { x: 0.02, z: -0.76, rotY: -0.04 }
+/** metade da área que precisa caber na tela ao ler (m): as duas páginas, ou uma só no celular, e uma margem */
+export const READ_HALF = { w: 0.185, h: 0.138 }
+export const READ_HALF_SINGLE = { w: 0.098, h: 0.15 }

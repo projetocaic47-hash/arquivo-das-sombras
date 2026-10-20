@@ -4,6 +4,7 @@ import * as THREE from 'three'
 import { book } from '../book/controller'
 import { atmosphere, noise1 } from './atmosphere'
 import { PAGE_W, READING_ROT_Y, readingFocus } from './book/BookModel'
+import { READ_HALF, READ_HALF_SINGLE } from './layout'
 
 const BASE = new THREE.Vector3(0.02, 1.24, 0.72)
 const TARGET = new THREE.Vector3(0, 1.02, -1.2)
@@ -13,9 +14,6 @@ const focus = new THREE.Vector3()
 // Ao ler, a câmera se inclina sobre o livro aberto: quase de cima, para as letras não se deformarem.
 const READ_DIR = new THREE.Vector3(0, 0.94, 0.34).normalize().applyAxisAngle(new THREE.Vector3(0, 1, 0), READING_ROT_Y)
 const FOCUS = readingFocus()
-/** metade da área que precisa caber na tela ao ler (m): as duas páginas, ou uma só no celular, e uma margem */
-const READ_HALF = { w: 0.185, h: 0.138 }
-const READ_HALF_SINGLE = { w: 0.098, h: 0.15 }
 /** direção da largura do livro aberto, para deslizar entre as páginas */
 const ACROSS = new THREE.Vector3(1, 0, 0).applyAxisAngle(new THREE.Vector3(0, 1, 0), READING_ROT_Y)
 

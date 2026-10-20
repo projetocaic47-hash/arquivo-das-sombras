@@ -176,6 +176,13 @@ export function App() {
       (e: Error) => ui.toast('Não foi possível salvar: ' + e.message),
     )
   }
+  // começo das histórias antes e depois das páginas à vista, para pular a história inteira
+  const starts = [...first.values()].sort((a, b) => a - b)
+  const leftPage = 2 * bk.spread - 2 + (bk.single ? bk.side : 0)
+  const rightPage = bk.single ? leftPage : leftPage + 1
+  const nextStory = starts.find((p) => p > rightPage)
+  const currentStart = starts.filter((p) => p <= leftPage).pop()
+  const prevStory = currentStart === undefined ? undefined : starts.filter((p) => p < currentStart).pop()
   const storyInView = viewRef ? archive.stories.find((s) => s.id === viewRef.sid) : undefined
 
   // ---- telas ----
@@ -272,6 +279,12 @@ export function App() {
           </span>
           <button aria-label="Próxima página" onClick={() => book.step(1)} disabled={bk.spread >= bk.last && !bk.turning && (!bk.single || bk.side === 1)}>
             ›
+          </button>
+          <button title="Voltar ao começo da história anterior" onClick={() => prevStory !== undefined && book.goToPage(prevStory)} disabled={prevStory === undefined}>
+            « história
+          </button>
+          <button title="Pular para o começo da próxima história" onClick={() => nextStory !== undefined && book.goToPage(nextStory)} disabled={nextStory === undefined}>
+            história »
           </button>
           <button onClick={() => book.goToPage(1)}>Índice</button>
           <button onClick={toggleMark} aria-pressed={marked}>
