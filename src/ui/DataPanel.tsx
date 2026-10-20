@@ -1,6 +1,6 @@
 import { useRef, useState } from 'react'
 import type { Story } from '../data/types'
-import { useArchive } from '../state/useArchive'
+import type { Archive } from '../state/useArchive'
 import { Dialog } from './Dialog'
 
 type Ask = { text: React.ReactNode; choices: string[]; resolve: (i: number) => void }
@@ -25,8 +25,7 @@ function download(name: string, text: string) {
  * do original e importa ou exporta backups reais. Será substituído pela
  * interface definitiva nas fases seguintes.
  */
-export function DataPanel() {
-  const a = useArchive()
+export function DataPanel({ archive: a }: { archive: Archive }) {
   const file = useRef<HTMLInputElement>(null)
   const [ask, setAsk] = useState<Ask | null>(null)
   const [note, setNote] = useState('')

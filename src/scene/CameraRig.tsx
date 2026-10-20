@@ -1,16 +1,33 @@
 import { useFrame, useThree } from '@react-three/fiber'
-import { useEffect, useRef } from 'react'
+import { useEffect, useMemo, useRef } from 'react'
 import * as THREE from 'three'
+import { book } from '../book/controller'
 import { atmosphere, noise1 } from './atmosphere'
+import { PAGE_W, READING_ROT_Y, readingFocus } from './book/BookModel'
 
 const BASE = new THREE.Vector3(0.02, 1.24, 0.72)
 const TARGET = new THREE.Vector3(0, 1.02, -1.2)
+const tmp = new THREE.Vector3()
+const focus = new THREE.Vector3()
+
+// Ao ler, a câmera se inclina sobre o livro aberto: vem de cima e um pouco da frente.
+const READ_DIR = new THREE.Vector3(0, 0.84, 0.54).normalize().applyAxisAngle(new THREE.Vector3(0, 1, 0), READING_ROT_Y)
+const FOCUS = readingFocus()
+/** metade da área que precisa caber na tela ao ler (m): as duas páginas, ou uma só no celular, e uma margem */
+const READ_HALF = { w: 0.2, h: 0.155 }
+const READ_HALF_SINGLE = { w: 0.098, h: 0.15 }
+/** direção da largura do livro aberto, para deslizar entre as páginas */
+const ACROSS = new THREE.Vector3(1, 0, 0).applyAxisAngle(new THREE.Vector3(0, 1, 0), READING_ROT_Y)
 
 /** Câmera sentada diante da mesa, com respiração lenta e leve paralaxe do mouse. */
 export function CameraRig() {
   const camera = useThree((s) => s.camera)
   const pointer = useRef({ x: 0, y: 0 })
   const smooth = useRef({ x: 0, y: 0 })
+  const read = useRef(0)
+  const across = useRef(0)
+  const pos = useMemo(() => new THREE.Vector3(), [])
+  const look = useMemo(() => new THREE.Vector3(), [])
 
   useEffect(() => {
     const onMove = (e: PointerEvent) => {
@@ -34,16 +51,37 @@ export function CameraRig() {
 
   useFrame((_, dt) => {
     const t = atmosphere.time
-    const still = atmosphere.reducedMotion ? 0 : 1
+    // aproximação suave do livro; sem animação, vai direto
+    const goal = book.coverTarget
+    read.current = atmosphere.reducedMotion ? goal : read.current + (goal - read.current) * (1 - Math.exp(-dt * 2.4))
+    const r = read.current * read.current * (3 - 2 * read.current)
+    // lendo, a câmera fica parada: o balanço faria as letras tremerem
+    const still = atmosphere.reducedMotion ? 0 : 1 - r
     const k = 1 - Math.exp(-dt * 1.5)
     smooth.current.x += (pointer.current.x - smooth.current.x) * k
     smooth.current.y += (pointer.current.y - smooth.current.y) * k
-    camera.position.set(
+    pos.set(
       BASE.x + still * (noise1(t * 0.13) * 0.012 + smooth.current.x * 0.05),
       BASE.y + still * (Math.sin(t * 0.45) * 0.004 + noise1(t * 0.11 + 9) * 0.008 - smooth.current.y * 0.025),
       BASE.z,
     )
-    camera.lookAt(TARGET)
+    look.copy(TARGET)
+    if (r > 0) {
+      // distância que faz as duas páginas caberem na largura e na altura da tela
+      const cam = camera as THREE.PerspectiveCamera
+      const vt = Math.tan((cam.fov * Math.PI) / 360)
+      const half = book.single ? READ_HALF_SINGLE : READ_HALF
+      const d = Math.max(half.w / (vt * cam.aspect), half.h / vt)
+      // no modo de uma página, a câmera desliza até o meio da página em foco
+      const goalX = book.single ? (book.side === 1 ? 1 : -1) * (PAGE_W / 2) : 0
+      across.current = atmosphere.reducedMotion ? goalX : across.current + (goalX - across.current) * (1 - Math.exp(-dt * 3))
+      focus.copy(FOCUS).addScaledVector(ACROSS, across.current)
+      tmp.copy(READ_DIR).multiplyScalar(d).add(focus)
+      pos.lerp(tmp, r)
+      look.lerp(focus, r)
+    }
+    camera.position.copy(pos)
+    camera.lookAt(look)
   })
   return null
 }

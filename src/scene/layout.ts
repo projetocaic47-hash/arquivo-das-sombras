@@ -7,3 +7,8 @@ export const CANDLE = { x: -0.25, z: -1.0, wax: 0.115 }
 /** altura da base da chama: tampo + castiçal + vela */
 export const FLAME_BASE_Y = DESK.height + 0.032 + CANDLE.wax + 0.006
 export const BOOK = { x: -0.01, z: -0.8, rotY: -0.16, w: 0.17, h: 0.245, t: 0.046 }
+/**
+ * Livro aberto para leitura: posição da lombada e giro. Ao abrir, o livro desliza
+ * do lugar em que está fechado (BOOK) para cá, como quem o puxa para perto.
+ */
+export const BOOK_OPEN = { x: 0.02, z: -0.76, rotY: -0.04 }

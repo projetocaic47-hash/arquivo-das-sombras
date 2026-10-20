@@ -12,7 +12,9 @@ export const PIXEL_PALETTE = [
   '#301e16', '#3f241a', '#58321e', '#764423', '#985a2a', '#bb7834', '#d99b45', '#efc066', '#fbe1a0', '#fff7e0',
   // vinho (capa do livro) e dourado gasto
   '#5e2a35', '#8a3a46', '#b0505c', '#7a6233', '#c5a059',
-  // neutros de gesso e papel
+  // papel das páginas: tons de pergaminho, para o papel não virar laranja nem cinza-azulado
+  '#6e5a3c', '#8c7550', '#ab9468', '#c7b183', '#dccaa0', '#ede0bf',
+  // neutros de gesso
   '#352d2a', '#544941', '#7d7062', '#a89a86', '#d5cabc',
   // rampa fria da noite
   '#0e1220', '#171e33', '#243049', '#384a6c', '#5a6f98', '#8fa3cc', '#cdd9f2',

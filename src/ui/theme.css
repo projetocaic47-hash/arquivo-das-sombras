@@ -46,3 +46,9 @@ button:hover { border-color: var(--gold); }
 
 /* Estilo pixel: a cena é desenhada em baixa resolução e ampliada sem suavizar */
 .scene.pixel canvas { image-rendering: crisp-edges; image-rendering: pixelated; }
+
+/* Fase 4: controles do livro */
+.bookbar { position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(14px + env(safe-area-inset-bottom, 0px)); z-index: 6; display: flex; gap: 8px; align-items: center; }
+.bookbar .pos { min-width: 7.5em; text-align: center; color: var(--pale); font-size: 0.9rem; font-variant-numeric: tabular-nums; }
+.bookbar button[aria-label] { font-size: 1.1rem; padding: 4px 14px; }
+button:disabled { opacity: 0.35; cursor: default; }

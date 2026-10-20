@@ -21,7 +21,7 @@ export function Props() {
   const sheets = [
     { x: -0.42, z: -0.74, r: 0.35 },
     { x: -0.38, z: -0.77, r: 0.12 },
-    { x: 0.38, z: -0.78, r: -0.5 },
+    { x: 0.5, z: -0.8, r: -0.5 },
   ]
   return (
     <group>

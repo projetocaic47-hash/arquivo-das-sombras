@@ -1,11 +1,14 @@
 import { Environment, Lightformer, PerformanceMonitor } from '@react-three/drei'
 import { Canvas, useFrame } from '@react-three/fiber'
-import { Suspense, useEffect, useState } from 'react'
+import { Suspense, useEffect, useState, useSyncExternalStore } from 'react'
 import * as THREE from 'three'
 import { atmosphere, updateAtmosphere } from './atmosphere'
 import { CameraRig } from './CameraRig'
 import { Effects } from './Effects'
-import { Book } from './objects/Book'
+import { book } from '../book/controller'
+import type { Config, Story } from '../data/types'
+import { BookContent } from './book/BookContent'
+import { BookModel } from './book/BookModel'
 import { Candle } from './objects/Candle'
 import { Desk } from './objects/Desk'
 import { Props } from './objects/Props'
@@ -20,17 +23,20 @@ function AtmosphereDriver() {
 }
 
 /** O quarto: mesa, janela com chuva, vela e livro fechado (Fase 3), no estilo definido em style.ts. */
-export function SceneRoot({ onReady }: { onReady?: () => void }) {
+export function SceneRoot({ onReady, stories, config }: { onReady?: () => void; stories: Story[]; config: Config }) {
+  const reading = useSyncExternalStore(book.subscribe, () => book.getSnapshot().reading)
   const [quality, setQuality] = useState<'high' | 'low'>('high')
   const [dpr, setDpr] = useState(STYLE === 'pixel' ? 1 / pixelSize(innerWidth, innerHeight) : 1.5)
 
-  // no estilo pixel a resolução da arte acompanha o tamanho da janela
+  // no estilo pixel a resolução da arte acompanha o tamanho da janela; lendo, os pixels
+  // ficam com metade do tamanho para as letras das páginas serem legíveis
   useEffect(() => {
     if (STYLE !== 'pixel') return
-    const on = () => setDpr(1 / pixelSize(innerWidth, innerHeight))
+    const on = () => setDpr(1 / Math.max(1, Math.round(pixelSize(innerWidth, innerHeight) / (reading ? 2 : 1))))
+    on()
     addEventListener('resize', on)
     return () => removeEventListener('resize', on)
-  }, [])
+  }, [reading])
 
   useEffect(() => {
     const mq = matchMedia('(prefers-reduced-motion: reduce)')
@@ -77,7 +83,8 @@ export function SceneRoot({ onReady }: { onReady?: () => void }) {
         <Desk />
         <Window />
         <Candle />
-        <Book />
+        <BookContent stories={stories} config={config} />
+        <BookModel config={config} />
         <Props />
         <Ready onReady={onReady} />
       </Suspense>

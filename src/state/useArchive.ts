@@ -69,3 +69,6 @@ export function useArchive() {
 
   return { status, stories, config, exportBackup, importReplace, importMerge, parseBackup }
 }
+
+/** O acervo aberto, compartilhado entre a interface e o livro 3D. */
+export type Archive = ReturnType<typeof useArchive>
