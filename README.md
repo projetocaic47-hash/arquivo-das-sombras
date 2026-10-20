@@ -3,7 +3,7 @@
 Reconstrução do `Arquivo das Sombras (1).html` em React + TypeScript + three.js.
 O HTML original continua intocado na pasta do projeto e é a referência.
 
-**Estado atual: Fase 6 (acabamento).** O quarto 3D tem o livro que abre
+**Estado atual: Fase 7 (validação final).** Guia para quem usa: [COMO-USAR.md](COMO-USAR.md). O quarto 3D tem o livro que abre
 (clique nele ou em "Abrir o livro"), e as páginas viram com curvatura e sombra, por
 clique, setas ou arrastando a folha. Tudo o que o original fazia voltou:
 
@@ -35,7 +35,7 @@ clique, setas ou arrastando a folha. Tudo o que o original fazia voltou:
   (escreve), caixa de fichas (acervo) e vela (ajustes). O contorno dourado aparece só
   com o mouse em cima. Os botões do alto são fitas de tecido, para quem prefere botões
   ou usa o teclado.
-- Fumaça sobe da vela (`src/scene/objects/Smoke.tsx`).
+- Fumaça sobe da vela (`src/scene/objects/Smoke.tsx`) e poeira flutua na luz dela, como no original (`Dust.tsx`).
 - Sem 3D (navegador antigo ou aceleração desligada), o app avisa e continua
   funcionando: acervo, escrita, ajustes e uma leitura simples com a mesma diagramação.
   Se o navegador soltar a placa de vídeo no meio do uso, aparece um aviso para recarregar.
@@ -72,6 +72,7 @@ node e2e/compat.mjs "../Arquivo das Sombras (1).html"   # teste com o original, 
 node e2e/shots.mjs # capturas do quarto em e2e/out, com npx vite preview --port 4173 rodando
 node e2e/book.mjs  # capturas do livro abrindo e virando páginas, em e2e/out/livro
 node e2e/capital.mjs # primeira página de uma história (letra capital), em e2e/out/capital
+bash e2e/validar.sh "../Arquivo das Sombras (1).html"   # validação completa: compila e roda todos os testes abaixo
 node e2e/mesa.mjs   # contorno e clique dos objetos da mesa, fumaça, em e2e/out/mesa
 node e2e/audit6.mjs 4173 e2e/out/fase6 [sizes|keys|nogl]   # tamanhos de tela, teclado e recarregar, sem 3D
 node e2e/fase5.mjs # editor, acervo, marcador e índice, em e2e/out/fase5
