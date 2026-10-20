@@ -52,7 +52,8 @@ Uma linha só com `***` vira uma pausa de cena com ornamento. O texto guardado n
 
 ## Ler
 
-- Vire a página clicando nela, arrastando a folha, com as setas da barra ou do teclado.
+- Ao abrir, o livro ocupa a tela inteira, em papel antigo e com letra grande. No celular em pé aparece uma página por vez.
+- Vire a página tocando na metade direita (ou esquerda, para voltar), arrastando a folha com o dedo ou o mouse, com as setas da barra ou do teclado. A folha se curva e ondula ao virar.
 - **« história / história »**: pula para o começo da história anterior ou da próxima.
 - **Índice**: lista das histórias; clique num título para ir até ele.
 - **Marcar**: põe uma fita na página. Com o livro fechado, os marcadores aparecem na barra.

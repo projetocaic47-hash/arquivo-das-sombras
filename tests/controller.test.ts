@@ -168,4 +168,55 @@ describe('controle do livro', () => {
     expect(b.jump).toBeNull()
     expect(b.spread).toBeGreaterThan(2)
   })
+  it('tela cheia com uma página por vez: cada página vira como uma folha', () => {
+    const b = make()
+    b.setSingle(true)
+    b.flat = true
+    b.open()
+    run(b, 2)
+    expect(b.page).toBe(0)
+    b.step(1)
+    expect(b.turn?.page).toBe(true)
+    expect(b.turn?.from).toBe(0)
+    run(b, 2)
+    expect([b.page, b.spread, b.side, b.turn]).toEqual([1, 1, 1, null])
+    b.step(1)
+    run(b, 2)
+    expect([b.page, b.spread, b.side]).toEqual([2, 2, 0])
+    b.step(-1)
+    expect(b.turn?.p).toBe(1)
+    run(b, 2)
+    expect(b.page).toBe(1)
+  })
+
+  it('tela cheia: um salto longo vai direto para perto e vira só a última página', () => {
+    const b = make()
+    b.setSingle(true)
+    b.flat = true
+    b.open()
+    run(b, 2)
+    const seen: number[] = []
+    b.goToPage(9)
+    for (let i = 0; i < 60 * 3; i++) {
+      b.update(1 / 60)
+      if (seen[seen.length - 1] !== b.page) seen.push(b.page)
+    }
+    expect(b.page).toBe(9)
+    expect(b.jump).toBeNull()
+    expect(seen).toEqual([8, 9])
+  })
+
+  it('tela cheia: arrastar a página até o meio e soltar desiste da virada', () => {
+    const b = make()
+    b.setSingle(true)
+    b.flat = true
+    b.open()
+    run(b, 2)
+    expect(b.beginDrag(1)).toBe(true)
+    b.dragTo(0.3)
+    run(b, 0.5)
+    b.endDrag(0)
+    run(b, 2)
+    expect([b.page, b.turn]).toEqual([0, null])
+  })
 })

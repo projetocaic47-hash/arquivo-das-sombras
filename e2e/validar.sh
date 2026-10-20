@@ -26,6 +26,7 @@ step letra-capital node e2e/capital.mjs 4173
 step teclado-recarregar node e2e/audit6.mjs 4173 e2e/out/fase6 keys
 step sem-3d node e2e/audit6.mjs 4173 e2e/out/fase6 nogl
 step telas node e2e/audit6.mjs 4173 e2e/out/fase6 sizes
+step leitura-tela-cheia node e2e/leitura.mjs 4173
 echo
 printf "%s" "$summary"
 echo "$ok passaram, $fail falharam"

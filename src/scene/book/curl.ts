@@ -16,6 +16,10 @@ export interface CurlParams {
   leftHeight: number
   /** largura da curva das folhas junto à lombada (m) */
   gutter: number
+  /** ondulação do papel no ar (radianos): ondas que correm pela folha enquanto ela vira */
+  ripple?: number
+  /** fase das ondas, que avança com o tempo para elas correrem */
+  phase?: number
 }
 
 const PI = Math.PI
@@ -56,7 +60,11 @@ export function leafAngle(p: number, u: number, v: number, prm: CurlParams) {
   const lead = 1.4 * lift * Math.pow(1 - p, 1.2) * corner
   const lag = 0.9 * lift * Math.pow(p, 2.2) * (2 - corner)
   const base = PI * w + (1 - w) * restAngle(s, prm.rightHeight, prm.gutter) - w * restAngle(s, prm.leftHeight, prm.gutter)
-  const a = base + lead * Math.pow(u, 1.8) - lag * Math.pow(u, 1.3)
+  // ondas: nascem na lombada presa e crescem para a borda solta; a fase muda com a virada,
+  // com o tempo e um pouco do alto ao pé da página, para a onda andar na diagonal
+  const amp = (prm.ripple || 0) * lift * Math.sin(PI * 0.5 * u) * (0.6 + 0.4 * lift)
+  const wave = amp ? amp * Math.sin(2 * PI * (1.3 * u - 1.6 * p) + 2.2 * v + (prm.phase || 0)) : 0
+  const a = base + lead * Math.pow(u, 1.8) - lag * Math.pow(u, 1.3) + wave
   // nunca abaixo do bloco da direita no começo nem além do da esquerda no fim
   const lo = (1 - w) * restAngle(s, prm.rightHeight, prm.gutter)
   const hi = PI - w * restAngle(s, prm.leftHeight, prm.gutter)

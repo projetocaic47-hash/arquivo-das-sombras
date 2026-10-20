@@ -18,6 +18,7 @@ import type { Ui } from './ui/ui'
 
 // A cena 3D (three.js) é o maior pedaço do app; carregá-la à parte deixa a interface aparecer primeiro.
 const SceneRoot = lazy(() => import('./scene/SceneRoot').then((m) => ({ default: m.SceneRoot })))
+const FlatReader = lazy(() => import('./reader/FlatReader').then((m) => ({ default: m.FlatReader })))
 
 /** Páginas à vista, como o original mostra ("3 – 4 / 12"); no celular, uma página só. */
 function position(spread: number, total: number, single: boolean, side: 0 | 1) {
@@ -28,8 +29,8 @@ function position(spread: number, total: number, single: boolean, side: 0 | 1) {
   return `${l}${r > l ? ' – ' + r : ''} / ${total}`
 }
 
-/** Telas estreitas ou em pé mostram uma página por vez (o original usa 900 px como limite). */
-const isSingle = () => innerWidth < 900 && innerWidth / innerHeight < 1.2
+/** Telas em pé mostram uma página por vez (mesma regra da leitura em tela cheia). */
+const isSingle = () => (innerWidth - 24) / Math.max(200, innerHeight - 130) < (2 * 400) / 576 * 0.85
 
 /** Primeira página de cada história no livro. */
 function firstPages(pages: BookPage[]) {
@@ -71,6 +72,15 @@ export function App() {
   const file = useRef<HTMLInputElement>(null)
   const bk = useSyncExternalStore(book.subscribe, book.getSnapshot)
   const cfg = archive.config
+  // leitura em tela cheia: aparece quando o livro abre; com ela já cobrindo a tela, o quarto para de desenhar
+  const [readerCovers, setReaderCovers] = useState(false)
+  // se a leitura em tela cheia falhar, o livro 3D continua servindo para ler
+  const [noFlat, setNoFlat] = useState(false)
+  useEffect(() => {
+    if (!bk.reading) return setReaderCovers(false)
+    const t = setTimeout(() => setReaderCovers(true), 1600)
+    return () => clearTimeout(t)
+  }, [bk.reading])
 
   const ui = useMemo<Ui>(
     () => ({
@@ -222,7 +232,14 @@ export function App() {
       ) : (
         <SceneBoundary onFail={() => setNoScene(true)}>
           <Suspense fallback={null}>
-            <SceneRoot onReady={() => setReady(true)} onLost={setLost} stories={archive.stories} config={cfg} onOpenSheet={openSheet} onLibrary={() => !screen && setScreen({ k: 'library' })} onSettings={() => !screen && setScreen({ k: 'settings' })} />
+            <SceneRoot paused={readerCovers && !noFlat} onReady={() => setReady(true)} onLost={setLost} stories={archive.stories} config={cfg} onOpenSheet={openSheet} onLibrary={() => !screen && setScreen({ k: 'library' })} onSettings={() => !screen && setScreen({ k: 'settings' })} />
+          </Suspense>
+        </SceneBoundary>
+      )}
+      {!noScene && !noFlat && bk.reading && (
+        <SceneBoundary onFail={() => setNoFlat(true)}>
+          <Suspense fallback={null}>
+            <FlatReader config={cfg} />
           </Suspense>
         </SceneBoundary>
       )}
@@ -277,7 +294,7 @@ export function App() {
           <span className="pos" data-testid="pos">
             {position(bk.spread, Math.max(0, bk.pages.length - 1), bk.single, bk.side)}
           </span>
-          <button aria-label="Próxima página" onClick={() => book.step(1)} disabled={bk.spread >= bk.last && !bk.turning && (!bk.single || bk.side === 1)}>
+          <button aria-label="Próxima página" onClick={() => book.step(1)} disabled={!bk.turning && (bk.single ? 2 * bk.spread - 2 + bk.side >= bk.pages.length - 1 : bk.spread >= bk.last)}>
             ›
           </button>
           <button title="Voltar ao começo da história anterior" onClick={() => prevStory !== undefined && book.goToPage(prevStory)} disabled={prevStory === undefined}>

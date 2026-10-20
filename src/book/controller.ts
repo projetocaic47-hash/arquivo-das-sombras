@@ -21,6 +21,9 @@ export interface Turn {
   settle?: 0 | 1
   /** página focada antes da virada (modo de uma página), para voltar a ela se a virada desistir */
   side0: 0 | 1
+  /** leitura em tela cheia com uma página por vez: a folha é a própria página `from` (avançar)
+   * ou `from − 1` (voltar), e o fim da virada mostra a página `from + dir` */
+  page?: boolean
 }
 
 export interface BookSnapshot {
@@ -53,6 +56,8 @@ export class BookController {
   jump: { spread: number; side: 0 | 1 } | null = null
   reducedMotion = false
   single = false
+  /** a leitura em tela cheia está à vista: ela anima o livro e, com uma página por vez, cada página vira */
+  flat = false
   side: 0 | 1 = 0
   private listeners = new Set<Listener>()
   private snap: BookSnapshot = { pages: [], spread: 0, last: 1, reading: false, turning: false, single: false, side: 0 }
@@ -73,6 +78,21 @@ export class BookController {
 
   get last() {
     return lastSpread(this.pages.length)
+  }
+
+  /** página em foco com uma página por vez */
+  get page() {
+    return Math.max(0, 2 * this.spread - 2 + this.side)
+  }
+
+  private setPage(i: number) {
+    this.spread = Math.floor(i / 2) + 1
+    this.side = (i % 2) as 0 | 1
+  }
+
+  /** cada página vira sozinha (tela cheia, uma página por vez) */
+  private get pageTurns() {
+    return this.flat && this.single
   }
 
   setPages(pages: BookPage[]) {
@@ -149,6 +169,10 @@ export class BookController {
       return
     }
     // uma página por vez: dentro da mesma abertura a câmera só desliza para a outra página
+    if (this.pageTurns) {
+      this.startTurn(dir)
+      return
+    }
     if (this.single && dir === 1 && this.side === 0) {
       this.side = 1
       this.emit()
@@ -167,6 +191,23 @@ export class BookController {
   }
 
   private startTurn(dir: 1 | -1, drag = false) {
+    if (this.pageTurns) {
+      const from = this.page
+      const to = from + dir
+      if (to < 0 || to >= this.pages.length) {
+        if (dir === -1 && !drag) this.close()
+        return false
+      }
+      if (this.reducedMotion && !drag) {
+        this.setPage(to)
+        this.emit()
+        return true
+      }
+      const p = dir === 1 ? 0 : 1
+      this.turn = { from, dir, p, drag, target: p, side0: this.side, page: true }
+      this.emit()
+      return true
+    }
     if (!this.canTurn(dir)) {
       // voltar da primeira abertura fecha o livro, como a capa do original
       if (dir === -1 && this.spread === 1 && !drag) this.close()
@@ -227,11 +268,13 @@ export class BookController {
       return
     }
     const end = t.settle === 0 ? (t.dir === 1 ? 0 : 1) : t.dir === 1 ? 1 : 0
-    const far = this.jump ? Math.abs(this.jump.spread - this.spread) : 0
+    const far = this.jump ? (t.page ? Math.abs(2 * this.jump.spread - 2 + this.jump.side - this.page) / 2 : Math.abs(this.jump.spread - this.spread)) : 0
     const speed = (far ? Math.min(8, Math.max(1.7, far * 0.9)) : this.queue.length ? 1.7 : 1) / TURN_SECONDS
     t.p = end > t.p ? Math.min(end, t.p + dt * speed) : Math.max(end, t.p - dt * speed)
     if (t.p === end) {
-      if (t.settle !== 0) this.spread = t.from + t.dir
+      if (t.page) {
+        if (t.settle !== 0) this.setPage(t.from + t.dir)
+      } else if (t.settle !== 0) this.spread = t.from + t.dir
       else this.side = t.side0
       this.turn = null
       this.emit()
@@ -241,6 +284,15 @@ export class BookController {
 
   private drainQueue() {
     const j = this.jump
+    if (j && this.pageTurns) {
+      const target = 2 * j.spread - 2 + j.side
+      // em tela cheia, um salto longo vai direto para perto do destino e vira só a última folha
+      if (Math.abs(target - this.page) > 2) this.setPage(target - Math.sign(target - this.page))
+      if (target === this.page) this.jump = null
+      else if (!this.startTurn(target > this.page ? 1 : -1)) this.jump = null
+      return
+    }
+    if (j && this.flat && Math.abs(j.spread - this.spread) > 2) this.spread = j.spread - Math.sign(j.spread - this.spread)
     if (j) {
       if (j.spread === this.spread) {
         this.jump = null

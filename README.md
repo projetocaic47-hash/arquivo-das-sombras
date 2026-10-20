@@ -45,6 +45,7 @@ clique, setas ou arrastando a folha. Tudo o que o original fazia voltou:
 - Letra das páginas: Jersey 10, fonte de pixel feita para tamanhos pequenos, desenhada
   na textura em múltiplo inteiro do pixel dela e com tinta sem meios-tons, para ficar
   nítida nas duas páginas, no computador e no celular.
+- **Leitura em tela cheia** (`src/reader/`): ao abrir, o livro ocupa a tela, visto de cima, em papel antigo desenhado no shader (manchas, ferrugem, fibras, bordas gastas) e letra grande e nítida. A folha que vira se curva e ondula (`curl.ts` com ondas); em tela em pé, cada página vira sozinha. O quarto para de desenhar enquanto ela cobre a tela.
 - Botões "« história" e "história »" no livro: pulam para o começo da história anterior
   ou da próxima, sem virar página por página.
 - O livro aberto é enquadrado entre as barras de botões; no celular deitado, as
@@ -75,6 +76,7 @@ node e2e/capital.mjs # primeira página de uma história (letra capital), em e2e
 bash e2e/validar.sh "../Arquivo das Sombras (1).html"   # validação completa: compila e roda todos os testes abaixo
 node e2e/mesa.mjs   # contorno e clique dos objetos da mesa, fumaça, em e2e/out/mesa
 node e2e/audit6.mjs 4173 e2e/out/fase6 [sizes|keys|nogl]   # tamanhos de tela, teclado e recarregar, sem 3D
+node e2e/leitura.mjs # leitura em tela cheia: abrir, arrastar, tocar, fechar, em e2e/out/leitura
 node e2e/fase5.mjs # editor, acervo, marcador e índice, em e2e/out/fase5
 ```
 

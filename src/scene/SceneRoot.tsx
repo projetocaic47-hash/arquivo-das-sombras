@@ -24,7 +24,9 @@ function AtmosphereDriver() {
 }
 
 /** O quarto: mesa, janela com chuva, vela e livro fechado (Fase 3), no estilo definido em style.ts. */
-export function SceneRoot({ onReady, onLost, stories, config, onOpenSheet, onLibrary, onSettings }: {
+export function SceneRoot({ onReady, onLost, stories, config, onOpenSheet, onLibrary, onSettings, paused = false }: {
+  /** a leitura em tela cheia cobre o quarto: ele para de desenhar */
+  paused?: boolean
   onReady?: () => void
   /** a placa de vídeo foi liberada pelo navegador (true) ou voltou (false) */
   onLost?: (lost: boolean) => void
@@ -63,6 +65,7 @@ export function SceneRoot({ onReady, onLost, stories, config, onOpenSheet, onLib
       className={'scene' + (STYLE === 'pixel' ? ' pixel' : '')}
       shadows={{ type: THREE.PCFShadowMap }}
       dpr={dpr}
+      frameloop={paused ? 'never' : 'always'}
       camera={{ position: [0.02, 1.24, 0.72], fov: 46, near: 0.02, far: 120 }}
       gl={{ antialias: false, powerPreference: 'high-performance', toneMapping: THREE.NoToneMapping }}
       aria-hidden="true"

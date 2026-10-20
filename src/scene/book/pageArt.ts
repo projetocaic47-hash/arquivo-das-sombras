@@ -341,17 +341,33 @@ export function drawPage(
  * como numa fonte de pixel desenhada à mão, numa escala em que os pixels da fonte caem
  * inteiros na textura (ver BookModel).
  */
-function inkedPage(draw: (ink: CanvasRenderingContext2D, paper: CanvasRenderingContext2D) => void, scale: number) {
+let scrap: CanvasRenderingContext2D | null = null
+
+function inkedPage(draw: (ink: CanvasRenderingContext2D, paper: CanvasRenderingContext2D) => void, scale: number, inkOnly = false) {
   const w = Math.round(PW * scale)
   const h = Math.round(PH * scale)
-  const page = document.createElement('canvas')
-  page.width = w
-  page.height = h
   const layer = document.createElement('canvas')
   layer.width = w
   layer.height = h
-  const bg = page.getContext('2d')!
   const ink = layer.getContext('2d', { willReadFrequently: true })!
+  if (inkOnly) {
+    // só a tinta, sobre fundo transparente: o papel é desenhado por quem usa a textura
+    if (!scrap) {
+      const c = document.createElement('canvas')
+      c.width = c.height = 1
+      scrap = c.getContext('2d')!
+    }
+    ink.scale(w / PW, h / PH)
+    draw(ink, scrap)
+    const img = ink.getImageData(0, 0, w, h)
+    for (let i = 3; i < img.data.length; i += 4) img.data[i] = img.data[i] >= 100 ? 255 : 0
+    ink.putImageData(img, 0, 0)
+    return layer
+  }
+  const page = document.createElement('canvas')
+  page.width = w
+  page.height = h
+  const bg = page.getContext('2d')!
   bg.scale(w / PW, h / PH)
   ink.scale(w / PW, h / PH)
   draw(ink, bg)
@@ -374,9 +390,16 @@ export class PageTextures {
   private cfg: Config
   /** pixels da textura por pixel da página (1 = 400 × 576) */
   private scale = 1
-  constructor(cfg: Config) {
+  /** só a tinta (leitura em tela cheia, que desenha o próprio papel) */
+  private inkOnly: boolean
+  constructor(cfg: Config, inkOnly = false) {
     this.cfg = cfg
     this.st = pageStyle(cfg)
+    this.inkOnly = inkOnly
+  }
+  /** tamanho do corpo do texto, em pixels da página (400 × 576) */
+  get font() {
+    return this.st.font
   }
   set(pages: BookPage[], cfg: Config, scale = 1) {
     this.scale = scale
@@ -411,13 +434,18 @@ export class PageTextures {
     const hits: TocHit[] = []
     const c = inkedPage((ctx, bg) => {
       drawPage(ctx, index, this.pages[index], this.st, this.cfg, this.marked.has(index), hits, bg)
-    }, this.scale)
+    }, this.scale, this.inkOnly)
     this.hits.set(index, hits)
     t = new THREE.CanvasTexture(c)
     t.colorSpace = THREE.SRGBColorSpace
     t.magFilter = THREE.NearestFilter
     t.anisotropy = 4
     this.cache.set(index, t)
+    if (this.inkOnly) {
+      // o shader do papel mistura a tinta já multiplicada pela opacidade, com as cores como estão
+      t.colorSpace = THREE.NoColorSpace
+      t.premultiplyAlpha = true
+    }
     if (this.cache.size > 16) {
       const [k, old] = this.cache.entries().next().value!
       this.cache.delete(k)

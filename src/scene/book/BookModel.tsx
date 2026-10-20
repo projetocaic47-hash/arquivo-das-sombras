@@ -270,7 +270,8 @@ export function BookModel({ config }: { config: Config }) {
   }, [snap.reading])
 
   // Qual folha está virando e que alturas/páginas cada parte mostra agora.
-  const t = book.turn
+  // viradas de uma página só são da leitura em tela cheia: o livro 3D não as desenha
+  const t = book.turn?.page ? null : book.turn
   const L = t ? (t.dir === 1 ? t.from : t.from - 1) : 0
   const spread = book.closingFrom || snap.spread
   const view = t
@@ -443,7 +444,8 @@ export function BookModel({ config }: { config: Config }) {
   const unhover = () => (document.body.style.cursor = '')
 
   useFrame((_, dt) => {
-    book.update(dt)
+    // com a leitura em tela cheia à vista, é ela quem anima o livro
+    if (!book.flat) book.update(dt)
     const open = easeTurn(Math.min(1, book.cover * 1.15))
     const pose = bookPose(open)
     const g = outer.current!
@@ -459,7 +461,7 @@ export function BookModel({ config }: { config: Config }) {
     joint.current!.visible = book.cover > 0 && book.cover < 0.999
     if (joint.current!.visible) updateJoint(jointGeo, hinge.angle, hinge.y, view.left, view.right, PAGE_H)
 
-    const tt = book.turn
+    const tt = book.turn?.page ? null : book.turn
     leaf.current!.visible = !!tt
     let shadeR = 0
     let shadeL = 0
