@@ -51,6 +51,14 @@ clique, setas ou arrastando a folha. Tudo o que o original fazia voltou:
 - O livro aberto é enquadrado entre as barras de botões; no celular deitado, as
   barras ficam nas laterais.
 
+**Nuvem** ([docs/NUVEM.md](docs/NUVEM.md)): aberto pelo link do claude.ai com a conta da
+pessoa, tudo o que é escrito ou ajustado sobe sozinho para o banco do link, numa área
+privada da conta, e aparece nos outros aparelhos. Sem conexão, as mudanças ficam
+pendentes e sobem depois; conflitos viram cópias, nunca sobrescrevem. O aviso no canto de
+baixo diz "salvo na nuvem", "salvando…", "alterações pendentes" ou "só neste aparelho".
+
+**Porta de entrada** (`src/entrance/`): o app começa diante de uma porta em pixel art. Bater três vezes no centro, acender a vela da direita e tocar o cartaz da esquerda abre a porta. Sons em `public/sons/` (lista em `public/sons/lista.json`).
+
 O banco continua o mesmo do original (versão 1, mesmos campos): o original lê o que a
 nova app escreve, e o contrário (`node e2e/compat.mjs`).
 
@@ -89,7 +97,8 @@ A pasta `dist/` precisa ser servida por um servidor web (por exemplo
 | --- | --- |
 | `src/data/` | tipos dos registros, acesso ao IndexedDB, backup, restauração e regras das histórias (`stories.ts`) |
 | `src/book/` | livro sem 3D: paginação (`pages.ts`) e estado das animações (`controller.ts`) |
-| `src/state/` | estado do acervo em memória ligado ao banco |
+| `src/state/` | estado do acervo em memória ligado ao banco e à nuvem |
+| `src/entrance/` | porta de entrada: sequência (`puzzle.ts`), sons (`sound.ts`) e desenho (`Entrance.tsx`) |
 | `src/ui/` | interface: editor, acervo, ajustes, perguntas e entrega de arquivos |
 | `src/scene/book/` | livro 3D: modelo, curvatura da folha (`curl.ts`) e desenho das páginas (`pageArt.ts`) |
 | `src/scene/` | cena 3D: `objects/` (quarto, mesa, janela, vela, livro), `shaders/` (vista da janela, chama), `layout.ts` (medidas em metros), `atmosphere.ts` (tremor da vela e relâmpagos) |

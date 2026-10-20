@@ -79,7 +79,7 @@ const nameOf = async (pg) => {
 
 // 2. A nova app, no mesmo endereço, enxerga exatamente esses dados
 const n = await page(ctx)
-await n.goto(base + '/')
+await n.goto(base + '/?debug') // ?debug pula a porta de entrada
 await openPanel(n)
 const stats = await n.textContent('[data-testid=stats]')
 check(stats.startsWith('2 histórias'), 'nova app conta 2 histórias visíveis: ' + stats)
@@ -114,7 +114,7 @@ await o2.close()
 // 4. Backup do original importado na nova app, num navegador vazio
 const ctx3 = await browser.newContext({ viewport: { width: 390, height: 844 } })
 const n3 = await page(ctx3)
-await n3.goto(base + '/')
+await n3.goto(base + '/?debug')
 await openPanel(n3)
 check((await n3.textContent('[data-testid=stats]')).startsWith('0 histórias'), 'navegador novo começa vazio')
 const [chooser] = await Promise.all([n3.waitForEvent('filechooser'), n3.click('text=Restaurar backup')])

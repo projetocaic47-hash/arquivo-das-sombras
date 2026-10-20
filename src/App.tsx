@@ -3,9 +3,10 @@ import { book } from './book/controller'
 import type { BookPage } from './book/pages'
 import { drafts, EMPTY_QUERY, words, type LibraryQuery } from './data/stories'
 import type { PageRef, Story } from './data/types'
-import { useArchive } from './state/useArchive'
+import { useArchive, type Archive } from './state/useArchive'
 import { restoreBackup } from './ui/backupFlow'
 import { Dialog } from './ui/Dialog'
+import { Entrance } from './entrance/Entrance'
 import { Editor, type EditorExit } from './ui/Editor'
 import { anchorDownload, saveFile } from './ui/files'
 import { useModal } from './ui/focus'
@@ -56,6 +57,30 @@ type Screen =
   | { k: 'copy'; name: string; text: string }
   | { k: 'read'; id: string }
 
+/** Aviso discreto de onde as histórias estão guardadas. */
+function CloudBadge({ s }: { s: Archive['cloud'] }) {
+  const text = { off: 'só neste aparelho', syncing: 'salvando na nuvem…', saved: 'salvo na nuvem', pending: 'alterações pendentes' }[s.state]
+  const help = {
+    off: 'As histórias ficam guardadas neste navegador. A nuvem funciona quando o app é aberto pelo link do claude.ai, com a sua conta.',
+    syncing: 'Enviando as últimas mudanças.',
+    saved: 'Tudo guardado neste aparelho e na nuvem. Abra o mesmo link com a sua conta em outro aparelho para continuar de lá.',
+    pending: `${s.pending} ${s.pending === 1 ? 'mudança espera' : 'mudanças esperam'} a conexão. Estão guardadas neste aparelho e sobem sozinhas quando a nuvem responder.`,
+  }[s.state]
+  const extra = [
+    s.conflicts ? `${s.conflicts} ${s.conflicts === 1 ? 'cópia em conflito criada' : 'cópias em conflito criadas'}` : '',
+    s.tooBig.length ? `${s.tooBig.length} ${s.tooBig.length === 1 ? 'história grande demais fica' : 'histórias grandes demais ficam'} só aqui` : '',
+  ].filter(Boolean)
+  return (
+    <p className={'cloud cloud-' + s.state} role="status" title={help + (s.conflicts ? ' Quando a mesma história muda em dois aparelhos ao mesmo tempo, nada é sobrescrito: a outra versão vira uma cópia "(cópia em conflito)" no Acervo.' : '')}>
+      <span className="cloud-dot" aria-hidden="true" />
+      {text}
+      {extra.map((x) => (
+        <span key={x} className="cloud-extra"> · {x}</span>
+      ))}
+    </p>
+  )
+}
+
 type Ask = { text: ReactNode; choices: string[]; resolve: (i: number) => void }
 
 export function App() {
@@ -76,6 +101,11 @@ export function App() {
   const [readerCovers, setReaderCovers] = useState(false)
   // se a leitura em tela cheia falhar, o livro 3D continua servindo para ler
   const [noFlat, setNoFlat] = useState(false)
+  // porta de entrada: todo acesso começa por ela (os testes automáticos com ?debug a pulam, salvo com &porta)
+  const [entered, setEntered] = useState(() => {
+    const q = new URLSearchParams(location.search)
+    return q.has('debug') && !q.has('porta')
+  })
   useEffect(() => {
     if (!bk.reading) return setReaderCovers(false)
     const t = setTimeout(() => setReaderCovers(true), 1600)
@@ -253,6 +283,7 @@ export function App() {
         acendendo a vela…
       </div>
       {archive.status.kind === 'error' && <p className="warnbar">{archive.status.message}</p>}
+      {entered && !bk.reading && <CloudBadge s={archive.cloud} />}
       {toast && (
         <p className="toast" role="status">
           {toast}
@@ -312,6 +343,7 @@ export function App() {
         </div>
       )}
       <p className="phase-tag">versão 1.0</p>
+      {!entered && <Entrance onEnter={() => setEntered(true)} />}
 
       {screen?.k === 'editor' && <Editor archive={archive} story={screen.story} onExit={editorExit} />}
       {screen && screen.k !== 'editor' && (
