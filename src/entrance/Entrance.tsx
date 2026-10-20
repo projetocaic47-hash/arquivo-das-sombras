@@ -85,6 +85,8 @@ export function Entrance({ onEnter }: { onEnter: () => void }) {
   const [state, setState] = useState<PuzzleState>(START)
   const stateRef = useRef(state)
   const [scale, setScale] = useState(1)
+  const scaleRef = useRef(1)
+  scaleRef.current = scale
   const [leaving, setLeaving] = useState(false)
   const [said, setSaid] = useState('')
   // tempos dos efeitos, lidos pelo desenho a cada quadro
@@ -187,7 +189,18 @@ export function Entrance({ onEnter }: { onEnter: () => void }) {
       const f = fx.current
       const s = stateRef.current
       const rm = reduced()
-      g.imageSmoothingEnabled = false
+      // a tela é desenhada na resolução real do aparelho (telas de alta densidade incluídas),
+      // e não na da imagem esticada; as medidas continuam em pixels da imagem
+      const W = Math.min(4096, Math.round(IW * scaleRef.current * (devicePixelRatio || 1)))
+      if (c.width !== W) {
+        c.width = W
+        c.height = Math.round((W * IH) / IW)
+      }
+      g.setTransform(c.width / IW, 0, 0, c.height / IH, 0, 0)
+      // a imagem ampliada com suavização de qualidade; os efeitos em blocos (chama, brilho,
+      // poeira) são retângulos e continuam nítidos
+      g.imageSmoothingEnabled = true
+      g.imageSmoothingQuality = 'high'
       g.globalCompositeOperation = 'source-over'
       g.globalAlpha = 1
       g.clearRect(0, 0, IW, IH)
@@ -268,8 +281,10 @@ export function Entrance({ onEnter }: { onEnter: () => void }) {
         const glow = glows[rm ? 1 : Math.min(2, Math.max(0, Math.round((flick - 0.9) * 25 + 1)))]
         g.globalCompositeOperation = 'lighter'
         g.globalAlpha = 0.42 * light
+        g.imageSmoothingEnabled = false
         g.drawImage(glow.c, snap(WICK.x - glow.r), snap(WICK.y - 12 - glow.r), glow.r * 2, glow.r * 2)
         g.globalAlpha = 1
+        g.imageSmoothingEnabled = true
         g.globalCompositeOperation = 'source-over'
         // chama em blocos: núcleo claro, corpo laranja, ponta avermelhada
         const hgt = Math.round((5 + (rm ? 0 : Math.round(Math.sin(now * 11) + Math.random() * 0.6))) * grow)
