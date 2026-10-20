@@ -294,7 +294,7 @@ export function App() {
           <button onClick={() => book.close()}>Fechar</button>
         </div>
       )}
-      <p className="phase-tag">Fase 6 · acabamento</p>
+      <p className="phase-tag">versão 1.0</p>
 
       {screen?.k === 'editor' && <Editor archive={archive} story={screen.story} onExit={editorExit} />}
       {screen && screen.k !== 'editor' && (
