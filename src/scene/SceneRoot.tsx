@@ -11,6 +11,7 @@ import { BookModel } from './book/BookModel'
 import { Candle } from './objects/Candle'
 import { Desk } from './objects/Desk'
 import { Props } from './objects/Props'
+import { Dust } from './objects/Dust'
 import { Room } from './objects/Room'
 import { Smoke } from './objects/Smoke'
 import { pixelSize, STYLE } from './style'
@@ -97,6 +98,7 @@ export function SceneRoot({ onReady, onLost, stories, config, onOpenSheet, onLib
         <Window />
         <Candle onOpen={onSettings} />
         <Smoke />
+        <Dust />
         <BookContent stories={stories} config={config} />
         <BookModel config={config} />
         <Props stories={stories} onOpenSheet={onOpenSheet} onLibrary={onLibrary} />
