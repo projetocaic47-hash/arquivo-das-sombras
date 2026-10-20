@@ -18,7 +18,7 @@ const SHEET_EDGE = new THREE.BufferGeometry().setAttribute(
 
 const SW = 256
 const SH = 362
-const BODY = `"Pixelify Sans", monospace`
+const BODY = `"Jersey 10", monospace`
 
 /** Lugares das folhas: [x, z, giro]. A primeira é a "Nova folha". */
 const SLOTS: [number, number, number][] = [
@@ -60,17 +60,17 @@ function sheetArt(s: Story | null) {
   ctx.textBaseline = 'alphabetic'
   if (!s) {
     ctx.textAlign = 'center'
-    ctx.font = `600 30px ${BODY}`
+    ctx.font = `38px ${BODY}`
     ctx.fillText('Nova folha', SW / 2, 130)
-    ctx.font = `600 90px ${BODY}`
+    ctx.font = `110px ${BODY}`
     ctx.fillText('+', SW / 2, 240)
-    ctx.font = `600 17px ${BODY}`
+    ctx.font = `22px ${BODY}`
     ctx.fillStyle = '#463b2c'
     ctx.fillText('toque para escrever', SW / 2, 290)
   } else {
-    ctx.font = `600 24px ${BODY}`
-    wrap(ctx, s.t || 'Sem título', SW - 40, 2).forEach((l, i) => ctx.fillText(l, 20, 48 + i * 28))
-    ctx.font = `600 15px ${BODY}`
+    ctx.font = `30px ${BODY}`
+    wrap(ctx, s.t || 'Sem título', SW - 40, 2).forEach((l, i) => ctx.fillText(l, 20, 48 + i * 32))
+    ctx.font = `20px ${BODY}`
     ctx.fillStyle = '#2c2318'
     wrap(ctx, s.x.replace(/\s+/g, ' ').trim().slice(0, 240), SW - 40, 9).forEach((l, i) => ctx.fillText(l, 20, 120 + i * 22))
     ctx.fillStyle = '#8a3a46'

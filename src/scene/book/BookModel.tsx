@@ -336,7 +336,7 @@ export function BookModel({ config }: { config: Config }) {
     g.textAlign = 'center'
     const name = config.n || 'Arquivo das Sombras'
     // em maiúsculas a letra gótica fica ilegível: usa a letra pixel comum
-    g.font = name === name.toLocaleUpperCase('pt-BR') ? `600 26px "Pixelify Sans", sans-serif` : `36px "Jacquarda Bastarda 9", serif`
+    g.font = name === name.toLocaleUpperCase('pt-BR') ? `30px "Jersey 10", sans-serif` : `36px "Jacquarda Bastarda 9", serif`
     const words = name.split(/\s+/)
     words.slice(0, 4).forEach((w, i) => g.fillText(w, 180, 230 + i * 40 - (words.length - 1) * 20))
     const tex = new THREE.CanvasTexture(c)
