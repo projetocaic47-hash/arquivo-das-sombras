@@ -49,7 +49,7 @@ async function run(name, vp, opts = {}) {
   const ent = p.locator('.entrance')
   await ent.waitFor()
   await p.waitForTimeout(1500)
-  const state = async () => ((await ent.count()) ? ent.getAttribute('data-state', { timeout: 2000 }) : 'done')
+  const state = async () => ((await ent.count()) ? ent.getAttribute('data-state', { timeout: 2000 }).catch(() => 'done') : 'done')
   const knocks = () => ent.getAttribute('data-knocks')
   const tap = (spot) => (opts.touch ? p.locator(`[data-spot=${spot}]`).tap() : p.locator(`[data-spot=${spot}]`).click())
 

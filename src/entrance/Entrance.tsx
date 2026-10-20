@@ -143,7 +143,7 @@ export function Entrance({ onEnter }: { onEnter: () => void }) {
       setState(stateRef.current)
       stopAll()
       onEnter()
-    }, (total * 0.78 + 1.3) * 1000)
+    }, (total * 0.78 + (reduced() ? 1.3 : 3.1)) * 1000)
   }
 
   const onSpot = (spot: Spot) => {
@@ -164,6 +164,9 @@ export function Entrance({ onEnter }: { onEnter: () => void }) {
       setSaid('A vela acendeu.')
     } else if (r.effect === 'poster') {
       fx.current.posterAt = now
+      // o pó acumulado no cartaz se solta e cai
+      dust(POSTER.x + 8, POSTER.x + POSTER.w - 8, POSTER.y + POSTER.h - 10, 14)
+      dust(POSTER.x + 12, POSTER.x + POSTER.w - 12, POSTER.y + 6, 6, 0.6)
       play('creak')
       setSaid('O cartaz se mexeu. A porta range e começa a abrir.')
       // o rangido da madeira vem antes; logo depois a porta cede
@@ -223,10 +226,8 @@ export function Entrance({ onEnter }: { onEnter: () => void }) {
         part(DOOR.x0, DOOR.y0, dw, dh, DOOR.x0 + shake, DOOR.y0, dw, dh)
       }
       if (opening) {
-        // o vão da porta: escuro no começo, e aos poucos o app aparece por ele
-        const reveal = rm ? Math.min(1, t) : Math.min(1, Math.max(0, (t - 0.22) / 0.5))
-        g.clearRect(DOOR.x0, DOOR.y0, dw, dh)
-        g.fillStyle = `rgba(5,4,3,${1 - reveal * 0.92})`
+        // o vão da porta é breu total; o quarto só aparece depois, num fade, ao atravessar
+        g.fillStyle = '#000'
         g.fillRect(DOOR.x0, DOOR.y0, dw, dh)
         if (rm) {
           g.globalAlpha = Math.max(0, 1 - t)
@@ -261,19 +262,20 @@ export function Entrance({ onEnter }: { onEnter: () => void }) {
         }
       }
 
-      // ---- cartaz: balança preso pelo alto e clareia um instante ----
+      // ---- cartaz: uma luz fraca passa por ele e se apaga (o pó cai, ver onSpot) ----
       const pt = now - f.posterAt
-      if (f.posterAt >= 0 && pt < 1.4) {
-        const k = rm ? 0 : Math.exp(-pt * 3) * Math.sin(pt * 14)
-        g.save()
-        g.fillStyle = 'rgba(6,8,9,0.9)'
-        g.fillRect(POSTER.x - 2, POSTER.y - 2, POSTER.w + 4, POSTER.h + 4)
-        g.translate(POSTER.x + POSTER.w / 2, POSTER.y)
-        g.rotate(k * 0.035)
-        g.filter = `brightness(${1 + 0.35 * Math.max(0, 1 - pt / 1.2)})`
-        part(POSTER.x, POSTER.y, POSTER.w, POSTER.h, -POSTER.w / 2, 0, POSTER.w, POSTER.h)
-        g.restore()
-        g.filter = 'none'
+      if (f.posterAt >= 0 && pt < 1.8) {
+        const a = Math.sin(Math.min(1, pt / 1.8) * Math.PI) * (rm ? 0.16 : 0.3)
+        const cx = POSTER.x + POSTER.w / 2
+        const cy = POSTER.y + POSTER.h * (rm ? 0.5 : 0.25 + 0.5 * Math.min(1, pt / 1.8))
+        const r = POSTER.h * 0.7
+        const gr = g.createRadialGradient(cx, cy, 0, cx, cy, r)
+        gr.addColorStop(0, `rgba(255,205,150,${a})`)
+        gr.addColorStop(1, 'rgba(255,205,150,0)')
+        g.globalCompositeOperation = 'lighter'
+        g.fillStyle = gr
+        g.fillRect(cx - r, cy - r, r * 2, r * 2)
+        g.globalCompositeOperation = 'source-over'
       }
 
       // ---- vela ----
