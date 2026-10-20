@@ -132,7 +132,37 @@ function pageNumber(ctx: CanvasRenderingContext2D, n: number, st: PageStyle) {
 }
 
 /** Desenha a página `index` do livro. `page` ausente = página em branco. */
-export function drawPage(ctx: CanvasRenderingContext2D, index: number, page: BookPage | undefined, st: PageStyle, cfg: Config) {
+/** Áreas clicáveis do índice: faixa vertical (pixels da página) e a página de destino. */
+export interface TocHit {
+  y0: number
+  y1: number
+  page: number
+}
+
+/** Fita de marcador pendurada no alto da página, do lado de fora. */
+function ribbon(ctx: CanvasRenderingContext2D, x: number) {
+  ctx.fillStyle = C.wine
+  ctx.fillRect(x, 0, 14, 62)
+  ctx.beginPath()
+  ctx.moveTo(x, 62)
+  ctx.lineTo(x + 7, 54)
+  ctx.lineTo(x + 14, 62)
+  ctx.lineTo(x + 14, 70)
+  ctx.lineTo(x + 7, 62)
+  ctx.lineTo(x, 70)
+  ctx.closePath()
+  ctx.fill()
+}
+
+export function drawPage(
+  ctx: CanvasRenderingContext2D,
+  index: number,
+  page: BookPage | undefined,
+  st: PageStyle,
+  cfg: Config,
+  marked = false,
+  hits: TocHit[] = [],
+) {
   const gutterLeft = paper(ctx, index)
   const left = gutterLeft ? M.gutter : M.outer
   const right = PW - (gutterLeft ? M.outer : M.gutter)
@@ -181,6 +211,7 @@ export function drawPage(ctx: CanvasRenderingContext2D, index: number, page: Boo
       ctx.fillStyle = C.ink
       ctx.fillText(title, left, y)
       ctx.fillText(num, right - nw, y)
+      hits.push({ y0: y - st.font - 4, y1: y + 8, page: e.page })
       // pontilhado até o número
       ctx.fillStyle = C.soft
       const from = left + ctx.measureText(title).width + 8
@@ -218,6 +249,7 @@ export function drawPage(ctx: CanvasRenderingContext2D, index: number, page: Boo
     ctx.fillRect(left, y + 8, right - left, 2)
     y += 16
   }
+  if (marked) ribbon(ctx, gutterLeft ? PW - 20 : 6)
   ctx.fillStyle = C.ink
   ctx.font = `600 ${st.font}px ${BODY}`
   for (const l of page.lines) {
@@ -230,6 +262,8 @@ export function drawPage(ctx: CanvasRenderingContext2D, index: number, page: Boo
 /** Texturas das páginas, criadas sob demanda e guardadas (poucas de cada vez). */
 export class PageTextures {
   private cache = new Map<number, THREE.CanvasTexture>()
+  private hits = new Map<number, TocHit[]>()
+  private marked = new Set<number>()
   private pages: BookPage[] = []
   private st: PageStyle
   private cfg: Config
@@ -243,6 +277,20 @@ export class PageTextures {
     this.st = pageStyle(cfg)
     this.cache.forEach((t) => t.dispose())
     this.cache.clear()
+    this.hits.clear()
+    // páginas marcadas: o original guarda o marcador relativo ao início da história
+    this.marked.clear()
+    const first = new Map<string, number>()
+    pages.forEach((p, i) => p.k === 'story' && p.first && first.set(p.sid, i))
+    for (const m of cfg.bm || []) {
+      const f = first.get(m.sid)
+      if (f !== undefined && pages[f + m.off]?.k === 'story') this.marked.add(f + m.off)
+    }
+  }
+  /** Entrada do índice no ponto (x, y) da página, em pixels da textura. */
+  tocAt(index: number, y: number) {
+    this.get(index)
+    return (this.hits.get(index) || []).find((h) => y >= h.y0 && y <= h.y1)?.page
   }
   get(index: number) {
     let t = this.cache.get(index)
@@ -255,7 +303,9 @@ export class PageTextures {
     const c = document.createElement('canvas')
     c.width = PW
     c.height = PH
-    drawPage(c.getContext('2d')!, index, this.pages[index], this.st, this.cfg)
+    const hits: TocHit[] = []
+    drawPage(c.getContext('2d')!, index, this.pages[index], this.st, this.cfg, this.marked.has(index), hits)
+    this.hits.set(index, hits)
     t = new THREE.CanvasTexture(c)
     t.colorSpace = THREE.SRGBColorSpace
     t.magFilter = THREE.NearestFilter

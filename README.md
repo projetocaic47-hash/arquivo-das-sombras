@@ -3,12 +3,33 @@
 Reconstrução do `Arquivo das Sombras (1).html` em React + TypeScript + three.js.
 O HTML original continua intocado na pasta do projeto e é a referência.
 
-**Estado atual: Fase 4 (livro e páginas).** O quarto 3D tem o livro que abre
-(clique nele ou em "Abrir o livro"), a câmera se aproxima e as páginas viram com
-curvatura e sombra, por clique, setas do teclado ou arrastando a folha. As páginas
-mostram as histórias do acervo, na ordem e numeração do original (índice e
-histórias). Em telas estreitas aparece uma página por vez. O painel de dados da
-Fase 2 abre pelo botão "Acervo"; editar e escrever voltam na Fase 5.
+**Estado atual: Fase 5 (editor, acervo e som).** O quarto 3D tem o livro que abre
+(clique nele ou em "Abrir o livro"), e as páginas viram com curvatura e sombra, por
+clique, setas ou arrastando a folha. Tudo o que o original fazia voltou:
+
+- **Escrever** abre uma folha de papel que grava sozinha (0,7 s depois de cada
+  mudança, ao fechar e com Ctrl+S), guarda versões anteriores a cada 10 minutos de
+  edição (até 15), tem modo foco e os botões "deixar na mesa", "enviar ao livro" e
+  "guardar e ver no livro".
+- **Acervo**: busca, filtros por situação e etiqueta, ordem, ↑ ↓, favoritos,
+  duplicar, lixeira (recuperar, excluir de vez), exportar .txt, .md e tudo em .md,
+  backup, restaurar e colar backup.
+- **Ajustes**: nome, frase da capa, tamanho da letra, reduzir animações e o som.
+- No livro: índice clicável, marcadores (fita na página), "Editar esta",
+  "Continuar leitura" e os marcadores na barra com o livro fechado.
+- **Folhas soltas**: os rascunhos mais recentes ficam como folhas sobre a mesa 3D
+  (clique para editar), e também em lista pelo botão do alto.
+- **Som** (`src/audio/sound.ts`): chuva constante, trovão a cada relâmpago da
+  janela, piano lento em lá menor que nunca repete a mesma sequência e o som da
+  escrita (máquina de escrever ou lápis). Começa no primeiro clique ou tecla, como
+  os navegadores exigem. As preferências de som ficam neste aparelho
+  (localStorage), fora do banco das histórias.
+- Arquivos (backup, .txt, .md): dentro do Claude, pela permissão de downloads da
+  página; num site comum, pelo download do navegador; se nenhum funcionar, o texto
+  aparece para copiar.
+
+O banco continua o mesmo do original (versão 1, mesmos campos): o original lê o que a
+nova app escreve, e o contrário (`node e2e/compat.mjs`).
 
 **Estilo gráfico: pixel 3D** (escolha do diretor criativo em 20/10/2026). A mesma
 cena 3D é desenhada em baixa resolução, ampliada sem suavizar, com paleta limitada
@@ -28,6 +49,7 @@ node scripts/gen-textures.mjs   # regera as texturas de public/textures (só se 
 node e2e/compat.mjs "../Arquivo das Sombras (1).html"   # teste com o original, após npm run build
 node e2e/shots.mjs # capturas do quarto em e2e/out, com npx vite preview --port 4173 rodando
 node e2e/book.mjs  # capturas do livro abrindo e virando páginas, em e2e/out/livro
+node e2e/fase5.mjs # editor, acervo, marcador, índice e medidas do som, em e2e/out/fase5
 ```
 
 A pasta `dist/` precisa ser servida por um servidor web (por exemplo
@@ -37,10 +59,12 @@ A pasta `dist/` precisa ser servida por um servidor web (por exemplo
 
 | Pasta | Conteúdo |
 | --- | --- |
-| `src/data/` | tipos dos registros, acesso ao IndexedDB, backup e restauração |
+| `src/data/` | tipos dos registros, acesso ao IndexedDB, backup, restauração e regras das histórias (`stories.ts`) |
 | `src/book/` | livro sem 3D: paginação (`pages.ts`) e estado das animações (`controller.ts`) |
 | `src/state/` | estado do acervo em memória ligado ao banco |
-| `src/ui/` | interface (por enquanto, um painel provisório de dados) |
+| `src/ui/` | interface: editor, acervo, ajustes, perguntas e entrega de arquivos |
+| `src/audio/` | som: chuva, trovões, piano e escrita |
+| `public/audio/piano/` | amostras do Salamander Grand Piano (Alexander Holm, CC BY 3.0) |
 | `src/scene/book/` | livro 3D: modelo, curvatura da folha (`curl.ts`) e desenho das páginas (`pageArt.ts`) |
 | `src/scene/` | cena 3D: `objects/` (quarto, mesa, janela, vela, livro), `shaders/` (vista da janela, chama), `layout.ts` (medidas em metros), `atmosphere.ts` (tremor da vela e relâmpagos) |
 | `scripts/` | gerador das texturas PBR (madeira, gesso, couro, papel), feitas por código e sem licença de terceiros |

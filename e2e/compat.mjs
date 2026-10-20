@@ -67,6 +67,15 @@ await o.close()
 
 // Desde a Fase 3 o painel de dados fica atrás do botão "Acervo", por cima do quarto 3D
 const openPanel = async (pg) => { await pg.click('.topbar button:has-text("Acervo")'); await pg.waitForSelector('[data-testid=stats]') }
+// nome do acervo: campo dos Ajustes (o painel do Acervo fica aberto de volta)
+const nameOf = async (pg) => {
+  await pg.click('.sheet button:has-text("fechar")')
+  await pg.click('.topbar button:has-text("Ajustes")')
+  const v = await pg.inputValue('.settings label:has-text("Nome do acervo") input')
+  await pg.click('.sheet button:has-text("fechar")')
+  await openPanel(pg)
+  return v
+}
 
 // 2. A nova app, no mesmo endereço, enxerga exatamente esses dados
 const n = await page(ctx)
@@ -75,7 +84,7 @@ await openPanel(n)
 const stats = await n.textContent('[data-testid=stats]')
 check(stats.startsWith('2 histórias'), 'nova app conta 2 histórias visíveis: ' + stats)
 check(stats.includes('1 rascunhos') && stats.includes('1 na lixeira'), 'rascunho e lixeira reconhecidos')
-check((await n.textContent('h1')) === 'ACERVO DE TESTE', 'nome do acervo vindo dos ajustes do original')
+check((await nameOf(n)) === 'ACERVO DE TESTE', 'nome do acervo vindo dos ajustes do original')
 const listed = await n.$$eval('[data-testid=list] b', (bs) => bs.map((b) => b.textContent))
 check(JSON.stringify(listed) === JSON.stringify(['A vela', 'Rascunho perdido']), 'títulos na ordem do livro: ' + listed.join(', '))
 const raw = await n.evaluate(() => new Promise((r) => { const q = indexedDB.open('arquivo-das-sombras'); q.onsuccess = () => { const d = q.result; const t = d.transaction(['stories', 'meta']); const a = t.objectStore('stories').getAll(); const c = t.objectStore('meta').get('cfg'); t.oncomplete = () => { r({ v: d.version, stores: [...d.objectStoreNames], stories: a.result, cfg: c.result }); d.close() } } }))
@@ -113,8 +122,10 @@ await chooser.setFiles({ name: 'backup.json', mimeType: 'application/json', buff
 await n3.click('text=Substituir o acervo atual')
 await n3.click('text=Sim, substituir')
 await n3.waitForSelector('text=Acervo restaurado: 3 histórias.')
+// como no original, o painel fecha depois de restaurar
+await openPanel(n3)
 check((await n3.textContent('[data-testid=stats]')).startsWith('2 histórias'), 'importação do backup do original: 2 visíveis + 1 na lixeira')
-check((await n3.textContent('h1')) === 'ACERVO DE TESTE', 'configuração restaurada junto')
+check((await nameOf(n3)) === 'ACERVO DE TESTE', 'configuração restaurada junto')
 // recarregar: os dados persistem
 await n3.reload()
 await openPanel(n3)
@@ -125,6 +136,43 @@ const [c2] = await Promise.all([n3.waitForEvent('filechooser'), n3.click('text=R
 await c2.setFiles({ name: 'x.json', mimeType: 'application/json', buffer: Buffer.from('{"app":"outro"}') })
 await n3.waitForSelector('text=Arquivo inválido ou incompleto. Nada foi alterado.')
 check((await n3.textContent('[data-testid=stats]')).startsWith('2 histórias'), 'arquivo inválido recusado sem alterar o acervo')
+
+// 5. Fase 5: escrever e editar na nova app; o original lê tudo igual
+await n3.click('.sheet button:has-text("fechar")')
+await n3.click('.topbar button:has-text("Escrever")')
+await n3.fill('.editor .e-title', 'Nova da fase 5')
+await n3.fill('.editor .e-text', 'Primeira linha.\n\nSegundo parágrafo com acentuação: ação, coração.')
+await n3.fill('.editor [aria-label=Etiquetas]', 'chuva, teste')
+await n3.waitForSelector('[data-testid=save-status]:has-text("guardado")')
+await n3.click('.editor button:has-text("deixar na mesa")')
+await n3.waitForSelector('.editor', { state: 'detached' })
+await openPanel(n3)
+check((await n3.textContent('[data-testid=stats]')).startsWith('3 histórias'), 'história nova gravada pelo editor')
+// editar uma existente pelo acervo, com a versão anterior guardada
+await n3.click('[data-testid=list] li:has-text("A vela") button:has-text("editar")')
+await n3.fill('.editor .e-text', 'Texto reescrito na nova app.')
+await n3.click('.editor button:has-text("fechar")')
+await n3.waitForSelector('.editor', { state: 'detached' })
+// favoritar, mandar o rascunho para a lixeira e trocar a ordem
+await openPanel(n3)
+await n3.click('[data-testid=list] li:has-text("A vela") button[aria-label=favoritar]')
+await n3.click('[data-testid=list] li:has-text("Rascunho perdido") button:has-text("lixeira")')
+await n3.click('[data-testid=list] li:has-text("Nova da fase 5") button[aria-label=subir]')
+await n3.waitForTimeout(400)
+const order = await n3.$$eval('[data-testid=list] b', (bs) => bs.map((b) => b.textContent))
+check(JSON.stringify(order) === JSON.stringify(['Nova da fase 5', 'A vela']), 'ordem trocada e lixeira: ' + order.join(', '))
+const o3 = await page(ctx3)
+await o3.goto(base + '/original.html')
+await o3.waitForTimeout(1500)
+const seen = await o3.evaluate(() => JSON.parse(JSON.stringify(S)))
+const nova = seen.find((s) => s.t === 'Nova da fase 5')
+check(!!nova && nova.st === 'd' && nova.tags.join() === 'chuva,teste' && nova.x.includes('coração') && typeof nova.o === 'number' && !('_new' in nova), 'original lê a história escrita na nova app com os mesmos campos')
+const vela = seen.find((s) => s.t === 'A vela')
+check(vela.x === 'Texto reescrito na nova app.' && vela.fav === true && vela.v?.[0]?.x === 'Era uma noite escura e a chuva batia no vidro.', 'original lê a edição, o favorito e a versão anterior')
+check(seen.find((s) => s.t === 'Rascunho perdido').del === true, 'original vê o rascunho na lixeira')
+const vis = await o3.evaluate(() => vis().map((s) => s.t))
+check(JSON.stringify(vis) === JSON.stringify(['Nova da fase 5', 'A vela']), 'original mostra a mesma ordem do livro: ' + vis.join(', '))
+await o3.close()
 
 check(errors.length === 0, 'nenhum erro no console' + (errors.length ? ': ' + errors.join(' | ') : ''))
 await browser.close()

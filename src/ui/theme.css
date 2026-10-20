@@ -38,7 +38,7 @@ button:hover { border-color: var(--gold); }
 /* Fase 3: cena em tela cheia, acervo provisório em painel */
 .loading { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; background: #020203; color: var(--soft); font-style: italic; letter-spacing: 0.1em; transition: opacity 1.6s ease; z-index: 5; pointer-events: none; }
 .loading.done { opacity: 0; }
-.topbar { position: fixed; top: 12px; right: 12px; z-index: 6; }
+.topbar { position: fixed; top: 12px; right: 12px; left: 12px; z-index: 6; display: flex; flex-wrap: wrap; gap: 6px; justify-content: flex-end; }
 .phase-tag { position: fixed; left: 12px; bottom: 8px; margin: 0; font-size: 0.75rem; color: rgba(168, 160, 144, 0.45); z-index: 6; letter-spacing: 0.08em; }
 .sheet { position: relative; background: rgba(12, 10, 8, 0.96); border: 1px solid #3a2c1c; width: min(760px, 100%); max-height: 92vh; overflow: auto; }
 .sheet .panel { padding-top: 32px; }
@@ -52,3 +52,73 @@ button:hover { border-color: var(--gold); }
 .bookbar .pos { min-width: 7.5em; text-align: center; color: var(--pale); font-size: 0.9rem; font-variant-numeric: tabular-nums; }
 .bookbar button[aria-label] { font-size: 1.1rem; padding: 4px 14px; }
 button:disabled { opacity: 0.35; cursor: default; }
+
+/* Fase 5: painéis, editor e avisos */
+.panel h3 { font: 600 1.1rem var(--h); letter-spacing: 0.18em; color: var(--gold); text-align: center; margin: 0 0 12px; text-transform: uppercase; }
+.panel h4 { font: 600 0.85rem var(--h); letter-spacing: 0.16em; color: var(--gold); margin: 22px 0 6px; text-transform: uppercase; }
+.panel label { display: block; margin: 10px 0; color: var(--ink); font-size: 0.95rem; }
+.panel label.check { display: flex; align-items: center; gap: 8px; }
+.panel label output { color: var(--soft); margin-left: 6px; }
+.panel .small { font-size: 0.85rem; color: var(--soft); }
+.panel .credit { opacity: 0.7; }
+input, select, textarea {
+  font: 1rem var(--b); color: var(--ink); background: rgba(0, 0, 0, 0.45); border: 1px solid #3a2c1c; padding: 8px 10px; width: 100%;
+}
+.panel label input:not([type=checkbox]), .panel label select { display: block; margin-top: 4px; }
+input[type=checkbox] { width: auto; accent-color: var(--wine); }
+input[type=range] { padding: 0; accent-color: var(--gold); }
+textarea.big { min-height: 260px; font-size: 0.85rem; }
+.filters input { flex: 2 1 220px; width: auto; }
+.filters select { flex: 1 1 120px; width: auto; }
+.library .list li { align-items: flex-start; }
+.library .list .t { flex: 1 1 260px; }
+.library .list .t p { margin: 4px 0 0; color: var(--soft); font-size: 0.9rem; }
+.library .ac { display: flex; flex-wrap: wrap; gap: 4px; }
+.library .ac button { padding: 6px 9px; font-size: 0.62rem; }
+.list li > div { flex: 1 1 auto; }
+.toast, .warnbar { position: fixed; top: 60px; left: 50%; transform: translateX(-50%); z-index: 30; max-width: min(640px, calc(100% - 32px)); margin: 0; padding: 10px 16px; background: #2a1f14; border: 1px solid var(--gold); color: var(--ink); font-size: 0.95rem; text-align: center; }
+.warnbar { background: #3b1c1c; border-color: var(--wine); top: auto; bottom: 70px; }
+.bookbar.closed { flex-direction: column; gap: 0; }
+.bookbar.closed .row { margin: 4px 0; }
+.bookbar .mark { font-size: 0.6rem; letter-spacing: 0.08em; }
+.bnote { margin: 4px 0 0; color: var(--soft); font-size: 0.85rem; text-align: center; font-style: italic; }
+.bookbar { flex-wrap: wrap; justify-content: center; width: max-content; max-width: calc(100% - 24px); }
+.sheets-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 12px; }
+.loose { display: flex; flex-direction: column; gap: 6px; text-align: left; min-height: 170px; padding: 14px; background: #ddd2b4; color: #1c150e; border: 0; font: 0.9rem var(--b); letter-spacing: 0; text-transform: none; box-shadow: 0 6px 14px rgba(0,0,0,.5); }
+.loose b { font: 600 1rem var(--b); }
+.loose span { color: #3a3024; flex: 1; overflow: hidden; }
+.loose i { color: var(--wine); font-size: 0.8rem; }
+.loose.new { align-items: center; justify-content: center; text-align: center; }
+.loose.new i { font-size: 2.4rem; font-style: normal; color: #1c150e; }
+
+/* editor: uma folha de papel sobre o quarto escurecido */
+.editor { position: fixed; inset: 0; z-index: 12; background: rgba(4, 3, 2, 0.78); display: flex; justify-content: center; align-items: flex-start; overflow: auto; padding: 24px 16px 40px; }
+.editor .paper {
+  width: min(760px, 100%); background: #ddd2b4; color: #1c150e; padding: 26px clamp(16px, 4vw, 44px) 18px;
+  box-shadow: 0 18px 50px rgba(0, 0, 0, 0.7), inset 0 0 60px rgba(120, 90, 50, 0.25);
+  background-image: repeating-linear-gradient(transparent 0 31px, rgba(120, 100, 70, 0.16) 31px 32px);
+}
+.editor h3 { font: 600 0.8rem var(--h); letter-spacing: 0.3em; text-transform: uppercase; color: #8a3a46; text-align: center; margin: 0 0 10px; }
+.editor input, .editor select, .editor textarea { background: transparent; border: 0; border-bottom: 1px solid rgba(60, 45, 25, 0.35); color: #1c150e; font-family: var(--b); padding: 6px 2px; }
+.editor input::placeholder, .editor textarea::placeholder { color: rgba(40, 30, 20, 0.45); }
+.editor .e-title { font: 600 1.7rem var(--b); }
+.editor .e-sub { font-style: italic; font-size: 1.1rem; }
+.editor .e-text { min-height: 46vh; font-size: 1.15rem; line-height: 32px; resize: vertical; border-bottom: 0; margin-top: 8px; }
+.editor .e-meta { display: flex; gap: 10px; }
+.editor .e-meta select { width: auto; }
+.editor .e-note { min-height: 60px; font-size: 0.95rem; font-style: italic; }
+.editor .e-count { font-size: 0.85rem; color: #5a4c38; margin: 10px 0 0; }
+.editor .row { justify-content: flex-start; }
+.editor button { background: rgba(28, 21, 14, 0.9); }
+.editor button.primary { background: #5e2a35; color: #f0dfb8; border-color: #c5a059; }
+.editor .warn { margin: 0 0 8px; }
+.editor .modal .list { background: transparent; }
+.editor.focus { background: rgba(2, 2, 1, 0.94); }
+.editor.focus .e-sub, .editor.focus .e-meta, .editor.focus .e-note, .editor.focus h3 { display: none; }
+.editor.focus .e-text { min-height: 70vh; }
+@media (max-width: 600px) {
+  .topbar button { padding: 7px 9px; font-size: 0.6rem; }
+  .editor { padding: 0; }
+  .editor .e-meta { flex-direction: column; }
+}
+@media (max-width: 600px) { .phase-tag { display: none; } }

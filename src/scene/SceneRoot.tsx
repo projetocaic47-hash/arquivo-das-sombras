@@ -1,7 +1,8 @@
 import { Environment, Lightformer, PerformanceMonitor } from '@react-three/drei'
 import { Canvas, useFrame } from '@react-three/fiber'
-import { Suspense, useEffect, useState } from 'react'
+import { Suspense, useEffect, useRef, useState } from 'react'
 import * as THREE from 'three'
+import { sound } from '../audio/sound'
 import { atmosphere, updateAtmosphere } from './atmosphere'
 import { CameraRig } from './CameraRig'
 import { Effects } from './Effects'
@@ -21,8 +22,24 @@ function AtmosphereDriver() {
   return null
 }
 
+/** Cada relâmpago na janela pede o seu trovão ao som, no mesmo instante do primeiro clarão. */
+function ThunderBridge() {
+  const last = useRef(0)
+  useFrame(() => {
+    if (atmosphere.strikes === last.current) return
+    last.current = atmosphere.strikes
+    if (atmosphere.forceLightning < 0) sound.thunder(atmosphere.strikePower, atmosphere.boltX)
+  })
+  return null
+}
+
 /** O quarto: mesa, janela com chuva, vela e livro fechado (Fase 3), no estilo definido em style.ts. */
-export function SceneRoot({ onReady, stories, config }: { onReady?: () => void; stories: Story[]; config: Config }) {
+export function SceneRoot({ onReady, stories, config, onOpenSheet }: {
+  onReady?: () => void
+  stories: Story[]
+  config: Config
+  onOpenSheet: (id: string | null) => void
+}) {
   const [quality, setQuality] = useState<'high' | 'low'>('high')
   const [dpr, setDpr] = useState(STYLE === 'pixel' ? 1 / pixelSize(innerWidth, innerHeight) : 1.5)
 
@@ -65,6 +82,7 @@ export function SceneRoot({ onReady, stories, config }: { onReady?: () => void; 
       />
       <color attach="background" args={['#020203']} />
       <AtmosphereDriver />
+      <ThunderBridge />
       <CameraRig />
       {/* luz rebatida muito fraca: evita preto absoluto nas áreas fora da vela */}
       <hemisphereLight args={['#2a3350', '#2a1a10', 0.05]} />
@@ -83,7 +101,7 @@ export function SceneRoot({ onReady, stories, config }: { onReady?: () => void; 
         <Candle />
         <BookContent stories={stories} config={config} />
         <BookModel config={config} />
-        <Props />
+        <Props stories={stories} onOpenSheet={onOpenSheet} />
         <Ready onReady={onReady} />
       </Suspense>
       <Effects quality={quality} style={STYLE} />

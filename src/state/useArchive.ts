@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { applyMerge, backupFileName, parseBackup, planMerge, serializeBackup, type MergeMode } from '../data/backup'
-import { loadAll, openArquivo, putStories, replaceAll, saveConfig, type Db } from '../data/db'
+import { deleteStory, loadAll, openArquivo, putStories, replaceAll, saveConfig, type Db } from '../data/db'
 import { DEFAULT_CONFIG, type Config, type Story } from '../data/types'
 
 export type ArchiveStatus = { kind: 'loading' } | { kind: 'ready' } | { kind: 'error'; message: string }
@@ -10,7 +10,13 @@ export function useArchive() {
   const db = useRef<Db | null>(null)
   const [status, setStatus] = useState<ArchiveStatus>({ kind: 'loading' })
   const [stories, setStories] = useState<Story[]>([])
-  const [config, setConfig] = useState<Config>(DEFAULT_CONFIG)
+  const [config, setConfigState] = useState<Config>(DEFAULT_CONFIG)
+  // ajustes mais recentes, inclusive os ainda sendo gravados (várias mudanças seguidas não se perdem)
+  const cfgRef = useRef(config)
+  const setConfig = (c: Config) => {
+    cfgRef.current = c
+    setConfigState(c)
+  }
 
   useEffect(() => {
     let alive = true
@@ -43,7 +49,7 @@ export function useArchive() {
   /** Texto do backup; registra a data do último backup como o original. */
   const exportBackup = useCallback(async () => {
     const now = new Date()
-    const next = { ...config, lb: now.getTime() }
+    const next = { ...cfgRef.current, lb: now.getTime() }
     await saveConfig(need(), next)
     setConfig(next)
     return { name: backupFileName(now), text: serializeBackup(next, stories, now) }
@@ -54,7 +60,7 @@ export function useArchive() {
     await replaceAll(d, list)
     setStories(list)
     if (cfg) {
-      const next = { ...config, ...cfg } as Config
+      const next = { ...cfgRef.current, ...cfg } as Config
       await saveConfig(d, next)
       setConfig(next)
     }
@@ -67,7 +73,28 @@ export function useArchive() {
     return plan
   }, [stories])
 
-  return { status, stories, config, exportBackup, importReplace, importMerge, parseBackup }
+  /** Grava uma ou mais histórias (novas ou alteradas) numa transação e só então mostra. */
+  const saveStories = useCallback(async (list: Story[]) => {
+    if (!list.length) return
+    await putStories(need(), list)
+    setStories((cur) => applyMerge(cur, list))
+  }, [])
+
+  /** Exclui de vez (só a partir da lixeira, como no original). */
+  const purgeStory = useCallback(async (id: string) => {
+    await deleteStory(need(), id)
+    setStories((cur) => cur.filter((s) => s.id !== id))
+  }, [])
+
+  /** Altera os ajustes; grava primeiro. */
+  const updateConfig = useCallback(async (patch: Partial<Config>) => {
+    const next = { ...cfgRef.current, ...patch }
+    cfgRef.current = next
+    await saveConfig(need(), next)
+    setConfigState(next)
+  }, [])
+
+  return { status, stories, config, exportBackup, importReplace, importMerge, parseBackup, saveStories, purgeStory, updateConfig }
 }
 
 /** O acervo aberto, compartilhado entre a interface e o livro 3D. */

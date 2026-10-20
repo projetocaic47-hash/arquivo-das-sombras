@@ -139,4 +139,33 @@ describe('controle do livro', () => {
     expect(b.spread).toBe(2)
     expect(b.turn).toBeNull()
   })
+
+  it('vai até uma página distante abrindo o livro e virando as folhas uma a uma', () => {
+    const b = make()
+    const seen: number[] = []
+    b.goToPage(9)
+    for (let i = 0; i < 60 * 8; i++) {
+      b.update(1 / 60)
+      if (seen[seen.length - 1] !== b.spread) seen.push(b.spread)
+    }
+    expect(b.cover).toBe(1)
+    expect(b.spread).toBe(5)
+    expect(b.side).toBe(1)
+    expect(b.jump).toBeNull()
+    // passou por todas as aberturas, sem pular nenhuma
+    expect(seen).toEqual([1, 2, 3, 4, 5])
+  })
+
+  it('volta para trás num salto e para se o leitor clicar no meio', () => {
+    const b = make()
+    b.goToPage(11)
+    run(b, 8)
+    expect(b.spread).toBe(6)
+    b.goToPage(2)
+    run(b, 0.2)
+    b.step(1)
+    run(b, 6)
+    expect(b.jump).toBeNull()
+    expect(b.spread).toBeGreaterThan(2)
+  })
 })

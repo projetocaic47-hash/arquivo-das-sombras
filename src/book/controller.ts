@@ -49,6 +49,8 @@ export class BookController {
   closingFrom = 0
   turn: Turn | null = null
   queue: (1 | -1)[] = []
+  /** destino de um salto (índice, "continuar leitura"): as folhas viram depressa até lá */
+  jump: { spread: number; side: 0 | 1 } | null = null
   reducedMotion = false
   single = false
   side: 0 | 1 = 0
@@ -95,10 +97,33 @@ export class BookController {
     this.emit()
   }
 
+  /**
+   * Vai até a página `page`, abrindo o livro se preciso. Perto, vira normalmente;
+   * longe, as folhas passam em sequência cada vez mais rápida, sem saltar.
+   */
+  goToPage(page: number) {
+    if (page < 0 || !this.pages.length) return
+    const spread = Math.min(this.last, Math.floor(page / 2) + 1)
+    const side: 0 | 1 = page % 2 === 0 ? 0 : 1
+    this.queue = []
+    if (this.reducedMotion) {
+      if (this.coverTarget === 0) this.open()
+      this.turn = null
+      this.spread = spread
+      this.side = side
+      this.emit()
+      return
+    }
+    this.jump = { spread, side }
+    if (this.coverTarget === 0) this.open()
+    else if (!this.turn && this.cover === 1) this.drainQueue()
+  }
+
   close() {
     if (this.coverTarget === 0) return
     this.turn = null
     this.queue = []
+    this.jump = null
     this.closingFrom = this.spread
     this.coverTarget = 0
     if (this.reducedMotion) this.finishClose()
@@ -113,6 +138,8 @@ export class BookController {
 
   /** Avança (1) ou volta (−1) uma abertura; cliques durante uma virada entram na fila. */
   step(dir: 1 | -1) {
+    // um clique do leitor no meio de um salto: o salto para na folha que está virando
+    this.jump = null
     if (this.coverTarget === 0) {
       if (dir === 1) this.open()
       return
@@ -200,7 +227,8 @@ export class BookController {
       return
     }
     const end = t.settle === 0 ? (t.dir === 1 ? 0 : 1) : t.dir === 1 ? 1 : 0
-    const speed = (this.queue.length ? 1.7 : 1) / TURN_SECONDS
+    const far = this.jump ? Math.abs(this.jump.spread - this.spread) : 0
+    const speed = (far ? Math.min(8, Math.max(1.7, far * 0.9)) : this.queue.length ? 1.7 : 1) / TURN_SECONDS
     t.p = end > t.p ? Math.min(end, t.p + dt * speed) : Math.max(end, t.p - dt * speed)
     if (t.p === end) {
       if (t.settle !== 0) this.spread = t.from + t.dir
@@ -212,6 +240,19 @@ export class BookController {
   }
 
   private drainQueue() {
+    const j = this.jump
+    if (j) {
+      if (j.spread === this.spread) {
+        this.jump = null
+        if (this.side !== j.side) {
+          this.side = j.side
+          this.emit()
+        }
+        return
+      }
+      if (!this.startTurn(j.spread > this.spread ? 1 : -1)) this.jump = null
+      return
+    }
     const next = this.queue.shift()
     if (next) this.step(next)
   }

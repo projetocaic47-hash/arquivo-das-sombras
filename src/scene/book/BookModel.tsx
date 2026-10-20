@@ -8,7 +8,7 @@ import type { Config } from '../../data/types'
 import { BOOK, BOOK_OPEN, DESK } from '../layout'
 import { STYLE } from '../style'
 import { curlLeaf, easeTurn, gutterDip, restAngle, restProfile, type CurlParams } from './curl'
-import { PageTextures } from './pageArt'
+import { PageTextures, PH } from './pageArt'
 
 // Medidas do livro (m). A lombada fica em x = 0 do grupo; a metade direita vai para +x.
 const BOARD = 0.0035
@@ -235,9 +235,12 @@ export function BookModel({ config }: { config: Config }) {
   const { pages, last } = snap
   const lt = leafThickness(last)
   const textures = useMemo(() => new PageTextures(config), []) // eslint-disable-line react-hooks/exhaustive-deps
-  useEffect(() => textures.set(pages, config), [textures, pages, config])
+  // redesenha as páginas só quando muda o que aparece nelas (a posição de leitura não conta)
+  const artKey = JSON.stringify([config.n, config.p, config.fs, config.bm || []])
+  useEffect(() => textures.set(pages, config), [textures, pages, artKey]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const outer = useRef<THREE.Group>(null)
+  const rightMesh = useRef<THREE.Mesh>(null)
   const leftPivot = useRef<THREE.Group>(null)
   const leaf = useRef<THREE.Group>(null)
   const spine = useRef<THREE.Mesh>(null)
@@ -272,7 +275,7 @@ export function BookModel({ config }: { config: Config }) {
     leftMat.map = view.lp >= 0 ? textures.get(view.lp) : null
     rightMat.map = view.rp >= 0 ? textures.get(view.rp) : null
     leftMat.needsUpdate = rightMat.needsUpdate = true
-  }, [view.lp, view.rp, textures, pages, leftMat, rightMat])
+  }, [view.lp, view.rp, textures, pages, artKey, leftMat, rightMat])
 
   // folha que vira: duas malhas (frente e verso) com as mesmas posições
   const leafGeo = useMemo(() => {
@@ -290,7 +293,7 @@ export function BookModel({ config }: { config: Config }) {
     frontMat.map = textures.get(2 * L - 1)
     backMat.map = textures.get(2 * L)
     frontMat.needsUpdate = backMat.needsUpdate = true
-  }, [t, L, textures, pages, frontMat, backMat])
+  }, [t, L, textures, pages, artKey, frontMat, backMat])
 
   const prm = useMemo<CurlParams>(
     () => ({ width: PAGE_W, height: PAGE_H, cols: COLS, rows: ROWS, rightHeight: rightHeight(L, lt), leftHeight: leftHeight(L + 1, lt), gutter: GUTTER }),
@@ -329,7 +332,7 @@ export function BookModel({ config }: { config: Config }) {
 
   // eventos: clique abre ou vira; arrastar segura a folha
   const { camera, gl } = useThree()
-  const drag = useRef<{ x: number; y: number; dir: 1 | -1; started: boolean; f0: number; p0: number; lastP: number; lastT: number; vel: number } | null>(null)
+  const drag = useRef<{ x: number; y: number; dir: 1 | -1; started: boolean; f0: number; p0: number; lastP: number; lastT: number; vel: number; toc?: number } | null>(null)
   const plane = useMemo(() => new THREE.Plane(), [])
   const ray = useMemo(() => new THREE.Raycaster(), [])
 
@@ -370,6 +373,7 @@ export function BookModel({ config }: { config: Config }) {
       drag.current = null
       if (!d) return
       if (d.started) book.endDrag(d.vel)
+      else if (d.toc !== undefined) book.goToPage(d.toc)
       else book.step(d.dir)
     }
     addEventListener('pointermove', move)
@@ -382,9 +386,18 @@ export function BookModel({ config }: { config: Config }) {
     }
   })
 
+  /** Entrada do índice sob o ponteiro, na página da esquerda ou da direita. */
+  const tocUnder = (e: ThreeEvent<PointerEvent>) => {
+    if (!e.uv || book.turn) return undefined
+    const index = e.object === rightMesh.current ? view.rp : view.lp
+    if (index < 0 || pages[index]?.k !== 'toc') return undefined
+    return textures.tocAt(index, (1 - e.uv.y) * PH)
+  }
+
   const onDown = (e: ThreeEvent<PointerEvent>) => {
     e.stopPropagation()
     if (book.coverTarget === 0) return
+    const toc = tocUnder(e)
     if (book.single) {
       // uma página por vez (celular): toque na metade direita avança, na esquerda volta;
       // deslizar o dedo para a esquerda avança, como no original
@@ -393,14 +406,21 @@ export function BookModel({ config }: { config: Config }) {
         removeEventListener('pointerup', up)
         const dx = u.clientX - x0
         if (Math.abs(dx) > 50) book.step(dx < 0 ? 1 : -1)
+        else if (toc !== undefined) book.goToPage(toc)
         else book.step(u.clientX > innerWidth / 2 ? 1 : -1)
       }
       addEventListener('pointerup', up)
       return
     }
     const x = localX(e.clientX, e.clientY)
-    drag.current = { x: e.clientX, y: e.clientY, dir: x >= 0 ? 1 : -1, started: false, f0: f(x), p0: 0, lastP: x >= 0 ? 0 : 1, lastT: performance.now(), vel: 0 }
+    drag.current = { x: e.clientX, y: e.clientY, dir: x >= 0 ? 1 : -1, started: false, f0: f(x), p0: 0, lastP: x >= 0 ? 0 : 1, lastT: performance.now(), vel: 0, toc }
   }
+
+  // mãozinha sobre as entradas do índice
+  const hover = (e: ThreeEvent<PointerEvent>) => {
+    document.body.style.cursor = tocUnder(e) !== undefined ? 'pointer' : ''
+  }
+  const unhover = () => (document.body.style.cursor = '')
 
   useFrame((_, dt) => {
     book.update(dt)
@@ -458,7 +478,7 @@ export function BookModel({ config }: { config: Config }) {
         <meshStandardMaterial color={coverColor} roughness={0.6} />
       </RoundedBox>
       {rightBlock && <mesh geometry={rightBlock} material={edgeMat} castShadow receiveShadow />}
-      <mesh geometry={rightSurface} material={rightMat} receiveShadow onPointerDown={onDown} />
+      <mesh ref={rightMesh} geometry={rightSurface} material={rightMat} receiveShadow onPointerDown={onDown} onPointerMove={hover} onPointerOut={unhover} />
 
       {/* metade esquerda: capa, folhas lidas e página da esquerda; gira para fechar */}
       <group ref={leftPivot}>
@@ -468,7 +488,7 @@ export function BookModel({ config }: { config: Config }) {
             <meshStandardMaterial color={coverColor} roughness={0.6} />
           </RoundedBox>
           {leftBlock && <mesh geometry={leftBlock} material={edgeMat} castShadow receiveShadow />}
-          <mesh geometry={leftSurface} material={leftMat} receiveShadow onPointerDown={onDown} />
+          <mesh geometry={leftSurface} material={leftMat} receiveShadow onPointerDown={onDown} onPointerMove={hover} onPointerOut={unhover} />
           {/* gravação dourada na face de fora da capa */}
           <mesh position={[-coverW / 2, -BOARD - 0.0003, 0]} rotation={[Math.PI / 2, 0, Math.PI]}>
             <planeGeometry args={[coverW * 0.92, coverH * 0.94]} />
