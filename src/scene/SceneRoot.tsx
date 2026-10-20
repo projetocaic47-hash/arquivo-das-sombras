@@ -12,6 +12,7 @@ import { Candle } from './objects/Candle'
 import { Desk } from './objects/Desk'
 import { Props } from './objects/Props'
 import { Room } from './objects/Room'
+import { Smoke } from './objects/Smoke'
 import { pixelSize, STYLE } from './style'
 import { Window } from './objects/Window'
 
@@ -22,13 +23,15 @@ function AtmosphereDriver() {
 }
 
 /** O quarto: mesa, janela com chuva, vela e livro fechado (Fase 3), no estilo definido em style.ts. */
-export function SceneRoot({ onReady, onLost, stories, config, onOpenSheet }: {
+export function SceneRoot({ onReady, onLost, stories, config, onOpenSheet, onLibrary, onSettings }: {
   onReady?: () => void
   /** a placa de vídeo foi liberada pelo navegador (true) ou voltou (false) */
   onLost?: (lost: boolean) => void
   stories: Story[]
   config: Config
   onOpenSheet: (id: string | null) => void
+  onLibrary: () => void
+  onSettings: () => void
 }) {
   const [quality, setQuality] = useState<'high' | 'low'>('high')
   const [dpr, setDpr] = useState(STYLE === 'pixel' ? 1 / pixelSize(innerWidth, innerHeight) : 1.5)
@@ -92,10 +95,11 @@ export function SceneRoot({ onReady, onLost, stories, config, onOpenSheet }: {
         <Room />
         <Desk />
         <Window />
-        <Candle />
+        <Candle onOpen={onSettings} />
+        <Smoke />
         <BookContent stories={stories} config={config} />
         <BookModel config={config} />
-        <Props stories={stories} onOpenSheet={onOpenSheet} />
+        <Props stories={stories} onOpenSheet={onOpenSheet} onLibrary={onLibrary} />
         <Ready onReady={onReady} />
       </Suspense>
       <Effects quality={quality} style={STYLE} />

@@ -51,6 +51,15 @@ export function CameraRig() {
     return () => removeEventListener('pointermove', onMove)
   }, [])
 
+  // ?debug: os testes clicam nos objetos da mesa pela posição deles na tela
+  useEffect(() => {
+    if (!location.search.includes('debug')) return
+    ;(window as unknown as { __project: (x: number, y: number, z: number) => number[] }).__project = (x, y, z) => {
+      const v = new THREE.Vector3(x, y, z).project(camera)
+      return [((v.x + 1) / 2) * innerWidth, ((1 - v.y) / 2) * innerHeight]
+    }
+  }, [camera])
+
   // em telas em pé, abre o ângulo para a mesa e a janela continuarem visíveis
   const size = useThree((s) => s.size)
   useEffect(() => {

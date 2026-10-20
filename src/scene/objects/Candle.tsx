@@ -3,13 +3,15 @@ import { useFrame } from '@react-three/fiber'
 import { useMemo, useRef } from 'react'
 import * as THREE from 'three'
 import { atmosphere, noise1 } from '../atmosphere'
+import { clickable, outlineMaterial, useHovered } from '../hover'
 import { CANDLE, DESK, FLAME_BASE_Y } from '../layout'
 import { flameFragment, flameVertex } from '../shaders/flame'
 
 const WAX_R = 0.0115
 
-/** Castiçal de latão, vela com escorridos, chama por shader e a luz que ela projeta. */
-export function Candle() {
+/** Castiçal de latão, vela com escorridos, chama por shader e a luz que ela projeta. Clicar abre os Ajustes. */
+export function Candle({ onOpen }: { onOpen: () => void }) {
+  const hovered = useHovered('vela')
   const light = useRef<THREE.PointLight>(null)
   const flameGroup = useRef<THREE.Group>(null)
 
@@ -105,7 +107,18 @@ export function Candle() {
 
   return (
     <group>
-      <group position={[CANDLE.x, DESK.height, CANDLE.z]}>
+      <group position={[CANDLE.x, DESK.height, CANDLE.z]} {...clickable('vela', onOpen)}>
+        {hovered && (
+          // filete dourado em volta do castiçal e da vela (2 mm acima da mesa, para não piscar)
+          <group position={[0, 0.002, 0]}>
+            <mesh position={[0, 0.017, 0]} material={outlineMaterial}>
+              <cylinderGeometry args={[0.058, 0.058, 0.034, 32]} />
+            </mesh>
+            <mesh position={[0, 0.032 + CANDLE.wax / 2 + 0.002, 0]} material={outlineMaterial}>
+              <cylinderGeometry args={[WAX_R + 0.006, WAX_R + 0.006, CANDLE.wax + 0.006, 20]} />
+            </mesh>
+          </group>
+        )}
         <mesh geometry={holderGeom} castShadow receiveShadow>
           <meshStandardMaterial color="#8c6a3a" metalness={1} roughness={0.38} />
         </mesh>

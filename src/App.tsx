@@ -11,6 +11,7 @@ import { anchorDownload, saveFile } from './ui/files'
 import { useModal } from './ui/focus'
 import { Library } from './ui/Library'
 import { Reader } from './ui/Reader'
+import { clearHover } from './scene/hover'
 import { hasWebGL, SceneBoundary } from './ui/SceneBoundary'
 import { Settings } from './ui/Settings'
 import type { Ui } from './ui/ui'
@@ -100,6 +101,11 @@ export function App() {
     addEventListener('resize', on)
     return () => removeEventListener('resize', on)
   }, [])
+
+  // com uma janela aberta por cima, nenhum objeto da mesa fica destacado
+  useEffect(() => {
+    if (screen || ask) clearHover()
+  }, [screen, ask])
 
   // setas viram as páginas e Esc fecha o livro (fora dos painéis)
   useEffect(() => {
@@ -209,7 +215,7 @@ export function App() {
       ) : (
         <SceneBoundary onFail={() => setNoScene(true)}>
           <Suspense fallback={null}>
-            <SceneRoot onReady={() => setReady(true)} onLost={setLost} stories={archive.stories} config={cfg} onOpenSheet={openSheet} />
+            <SceneRoot onReady={() => setReady(true)} onLost={setLost} stories={archive.stories} config={cfg} onOpenSheet={openSheet} onLibrary={() => !screen && setScreen({ k: 'library' })} onSettings={() => !screen && setScreen({ k: 'settings' })} />
           </Suspense>
         </SceneBoundary>
       )}

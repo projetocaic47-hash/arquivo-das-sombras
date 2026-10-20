@@ -6,6 +6,7 @@ import { book } from '../../book/controller'
 import { spreadPages } from '../../book/pages'
 import type { Config } from '../../data/types'
 import { BOOK, BOOK_OPEN, DESK } from '../layout'
+import { clearHover, clickable, outlineMaterial, useHovered } from '../hover'
 import { STYLE } from '../style'
 import { curlLeaf, easeTurn, gutterDip, restAngle, restProfile, type CurlParams } from './curl'
 import { PageTextures, PH } from './pageArt'
@@ -247,7 +248,11 @@ export function BookModel({ config }: { config: Config }) {
   const spineGeo = useMemo(() => spineGeometry(), [])
   const joint = useRef<THREE.Mesh>(null)
   const jointGeo = useMemo(() => spineGeometry(), [])
-  const hull = useRef<THREE.Mesh>(null)
+  const hovered = useHovered('book')
+  // a área de clique some ao abrir: o contorno e a mãozinha saem junto
+  useEffect(() => {
+    if (snap.reading) clearHover()
+  }, [snap.reading])
 
   // Qual folha está virando e que alturas/páginas cada parte mostra agora.
   const t = book.turn
@@ -438,7 +443,6 @@ export function BookModel({ config }: { config: Config }) {
     if (spine.current!.visible) updateSpine(spineGeo, hinge.y, PAGE_H + OVER * 2)
     joint.current!.visible = book.cover > 0 && book.cover < 0.999
     if (joint.current!.visible) updateJoint(jointGeo, hinge.angle, hinge.y, view.left, view.right, PAGE_H)
-    if (hull.current) hull.current.visible = book.cover === 0 && book.coverTarget === 0
 
     const tt = book.turn
     leaf.current!.visible = !!tt
@@ -515,25 +519,16 @@ export function BookModel({ config }: { config: Config }) {
 
       {/* livro fechado: área de clique para abrir */}
       {snap.reading ? null : (
-        <mesh
-          position={[coverW / 2, BLOCK / 2, 0]}
-          onClick={(e) => {
-            e.stopPropagation()
-            book.open()
-          }}
-          onPointerOver={() => (document.body.style.cursor = 'pointer')}
-          onPointerOut={() => (document.body.style.cursor = '')}
-        >
+        <mesh position={[coverW / 2, BLOCK / 2, 0]} {...clickable('book', () => book.open())}>
           <boxGeometry args={[coverW + 0.02, BLOCK + BOARD * 2 + 0.02, coverH + 0.02]} />
           <meshBasicMaterial colorWrite={false} depthWrite={false} />
         </mesh>
       )}
 
-      {/* estilo pixel: filete dourado em volta do livro fechado; afastado 2 mm da mesa para não piscar */}
-      {STYLE === 'pixel' && (
-        <mesh ref={hull} position={[coverW / 2 - 0.004, -BOARD + 0.002 + (BLOCK + BOARD * 2 + 0.004) / 2, 0]}>
+      {/* filete dourado em volta do livro fechado, só com o mouse em cima; afastado 2 mm da mesa para não piscar */}
+      {hovered && !snap.reading && (
+        <mesh position={[coverW / 2 - 0.004, -BOARD + 0.002 + (BLOCK + BOARD * 2 + 0.004) / 2, 0]} material={outlineMaterial}>
           <boxGeometry args={[coverW + 0.028, BLOCK + BOARD * 2 + 0.004, coverH + 0.02]} />
-          <meshBasicMaterial color="#e0b060" side={THREE.BackSide} />
         </mesh>
       )}
     </group>
