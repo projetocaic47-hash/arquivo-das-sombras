@@ -1,4 +1,5 @@
 import type { Story } from '../data/types'
+import { setStory, type DropCap, type Line } from './typeset'
 
 // Montagem das páginas do livro a partir das histórias, na mesma ordem e com a mesma
 // numeração do HTML original: página 0 (capa no original; aqui, o verso da capa),
@@ -14,7 +15,7 @@ export interface TocEntry {
 export type BookPage =
   | { k: 'endpaper' }
   | { k: 'toc'; first: boolean; count: number; entries: TocEntry[] }
-  | { k: 'story'; sid: string; first: boolean; title: string; sub: string; draft: boolean; lines: string[] }
+  | { k: 'story'; sid: string; first: boolean; title: string; sub: string; draft: boolean; lines: Line[]; drop?: DropCap }
 
 /** Medidas de uma página, na unidade em que `measure` devolve larguras (pixels da textura). */
 export interface PageMetrics {
@@ -28,6 +29,10 @@ export interface PageMetrics {
   /** altura do bloco de título na primeira página de uma história */
   firstHeader(s: { title: string; sub: string; draft: boolean }): number
   measure(text: string): number
+  /** recuo da primeira linha dos parágrafos */
+  indent: number
+  /** largura da letra capital com o respiro até o texto */
+  dropWidth(letter: string): number
 }
 
 export const TOC_PER_PAGE = 8
@@ -80,15 +85,15 @@ export function buildPages(stories: Story[], m: PageMetrics): BookPage[] {
     starts.push(storyPages.length)
     const head = { title: s.t || UNTITLED, sub: s.sub || '', draft: s.st === 'd' }
     const firstLines = Math.max(1, Math.floor((m.bodyHeight - m.firstHeader(head)) / m.lineHeight))
-    const lines = wrapText(s.x || '', m.width, m.measure)
+    const { lines, drop } = setStory(s.x || '', m)
     let i = 0
     let first = true
     do {
       // uma página não começa com linhas em branco que sobraram da anterior
-      if (!first) while (i < lines.length && lines[i] === '') i++
+      if (!first) while (i < lines.length && !lines[i].t) i++
       const n = first ? firstLines : restLines
       if (!first && i >= lines.length) break
-      storyPages.push({ k: 'story', sid: s.id, first, ...head, lines: lines.slice(i, i + n) })
+      storyPages.push({ k: 'story', sid: s.id, first, ...head, lines: lines.slice(i, i + n), ...(first && drop ? { drop } : {}) })
       i += n
       first = false
     } while (i < lines.length)

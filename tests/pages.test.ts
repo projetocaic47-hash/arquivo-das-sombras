@@ -10,6 +10,8 @@ const metrics: PageMetrics = {
   runningHeader: 2,
   firstHeader: (s) => 3 + (s.sub ? 1 : 0) + (s.draft ? 1 : 0),
   measure: (t) => t.length,
+  indent: 2,
+  dropWidth: () => 3,
 }
 
 const story = (id: string, o: number, x: string, extra: Partial<Story> = {}): Story => ({
@@ -44,7 +46,10 @@ describe('buildPages', () => {
     expect(toc[1].page).toBe(2 + a.length)
     expect(pages[toc[1].page]).toMatchObject({ sid: 'b', first: true })
     // nada se perde nem se repete
-    expect(a.flatMap((p) => (p.k === 'story' ? p.lines : []))).toEqual(long.split('\n'))
+    // nada se perde nem se repete (a primeira letra vira a capital; cada parágrafo começa em maiúscula)
+    expect(a[0].k === 'story' && a[0].drop?.letter).toBe('L')
+    expect(a.flatMap((p) => (p.k === 'story' ? p.lines.map((l) => l.t) : []))).toEqual(['INHA0', ...long.split('\n').slice(1).map((l) => 'L' + l.slice(1))])
+    expect(a.slice(1).every((p) => p.k === 'story' && !p.drop)).toBe(true)
     expect(pages.some((p) => p.k === 'story' && p.sid === 'z')).toBe(false)
   })
   it('acervo vazio: verso da capa e um índice vazio', () => {

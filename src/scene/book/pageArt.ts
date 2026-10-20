@@ -44,6 +44,47 @@ export function loadPageFonts() {
 
 const measureCtx = () => document.createElement('canvas').getContext('2d')!
 
+/**
+ * Letra capital: gótica, em vinho, da altura de três linhas (do alto das maiúsculas da
+ * primeira linha até a base da terceira). Tamanho em múltiplos de 9, a grade da fonte.
+ */
+function dropFont(ctx: CanvasRenderingContext2D, st: PageStyle) {
+  const target = 2 * st.line + Math.round(st.font * 0.72)
+  ctx.font = `90px ${GOTHIC}`
+  const ascent = ctx.measureText('H').actualBoundingBoxAscent || 63
+  const size = Math.max(36, Math.round((target * 90) / ascent / 9) * 9)
+  return `${size}px ${GOTHIC}`
+}
+const DROP_GAP = 7
+
+// O travessão da fonte de pixels é curto como um hífen; no texto das histórias ele é
+// desenhado como um traço da largura de um "M", na altura e espessura do hífen.
+const DASH = '—'
+const dashWidth = (ctx: CanvasRenderingContext2D) => Math.round(ctx.measureText('M').width)
+
+/** Largura do texto, com o travessão longo. */
+function textWidth(ctx: CanvasRenderingContext2D, t: string) {
+  const parts = t.split(DASH)
+  return parts.reduce((w, p) => w + ctx.measureText(p).width, 0) + (parts.length - 1) * dashWidth(ctx)
+}
+
+/** Escreve o texto, com o travessão longo. */
+function drawText(ctx: CanvasRenderingContext2D, t: string, x: number, y: number) {
+  const parts = t.split(DASH)
+  const dw = dashWidth(ctx)
+  const h = ctx.measureText('-')
+  const top = Math.round(h.actualBoundingBoxAscent)
+  const thick = Math.max(1, Math.round(h.actualBoundingBoxAscent + h.actualBoundingBoxDescent))
+  parts.forEach((p, i) => {
+    ctx.fillText(p, x, y)
+    x += ctx.measureText(p).width
+    if (i < parts.length - 1) {
+      ctx.fillRect(Math.round(x + 1), y - top, dw - 2, thick)
+      x += dw
+    }
+  })
+}
+
 /** Letra dos títulos: a gótica, exceto em textos todos em maiúsculas, que nela ficam ilegíveis. */
 function titleFont(text: string, st: PageStyle) {
   const caps = /\p{Lu}/u.test(text) && text === text.toLocaleUpperCase('pt-BR')
@@ -80,7 +121,12 @@ export function pageMetrics(st: PageStyle): PageMetrics {
     },
     measure: (t) => {
       ctx.font = `600 ${st.font}px ${BODY}`
-      return ctx.measureText(t).width
+      return textWidth(ctx, t)
+    },
+    indent: Math.round(st.font * 1.6),
+    dropWidth: (letter) => {
+      ctx.font = dropFont(ctx, st)
+      return Math.ceil(ctx.measureText(letter).width) + DROP_GAP
     },
   }
 }
@@ -250,12 +296,39 @@ export function drawPage(
     y += 16
   }
   if (marked) ribbon(ctx, gutterLeft ? PW - 20 : 6)
-  ctx.fillStyle = C.ink
-  ctx.font = `600 ${st.font}px ${BODY}`
-  for (const l of page.lines) {
-    y += st.line
-    ctx.fillText(l, left, y - Math.round(st.line * 0.28))
+  const body = `600 ${st.font}px ${BODY}`
+  const base = (k: number) => y + (k + 1) * st.line - Math.round(st.line * 0.28)
+  if (page.drop) {
+    // letra capital: o alto acompanha as maiúsculas da primeira linha, a base senta na linha `lines`
+    ctx.font = dropFont(ctx, st)
+    ctx.fillStyle = C.wine
+    ctx.fillText(page.drop.letter, left - 1, base(Math.min(page.drop.lines, page.lines.length) - 1))
   }
+  ctx.fillStyle = C.ink
+  ctx.font = body
+  const space = ctx.measureText(' ').width
+  page.lines.forEach((l, k) => {
+    const by = base(k)
+    if (l.center) {
+      ornament(ctx, (left + right) / 2, by - Math.round(st.font * 0.35), C.gold)
+      ctx.fillStyle = C.ink
+      return
+    }
+    const words = l.t.split(' ')
+    const avail = right - left - l.x
+    const natural = textWidth(ctx, l.t)
+    // justificado como num livro; só uma linha quase vazia fica alinhada à esquerda
+    const extra = words.length > 1 ? (avail - natural) / (words.length - 1) : 0
+    if (!l.justify || extra <= 0 || extra > space * 5) {
+      drawText(ctx, l.t, left + l.x, by)
+      return
+    }
+    let x = left + l.x
+    for (const w of words) {
+      drawText(ctx, w, Math.round(x), by)
+      x += textWidth(ctx, w) + space + extra
+    }
+  })
   pageNumber(ctx, index, st)
 }
 

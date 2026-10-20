@@ -15,6 +15,12 @@ clique, setas ou arrastando a folha. Tudo o que o original fazia voltou:
   duplicar, lixeira (recuperar, excluir de vez), exportar .txt, .md e tudo em .md,
   backup, restaurar e colar backup.
 - **Ajustes**: nome, frase da capa, tamanho da letra e reduzir animações. Sem som por enquanto: o diretor vai enviar os arquivos de áudio.
+- **Texto diagramado como livro impresso** (`src/book/typeset.ts`): letra capital
+  gótica de três linhas no começo de cada história, com o resto da primeira palavra em
+  maiúsculas; parágrafos com recuo (sem linhas em branco); linhas justificadas;
+  travessão nos diálogos; aspas curvas; reticências; espaços corrigidos; parágrafo
+  sempre começando com maiúscula; `***` sozinho na linha vira pausa de cena com
+  ornamento. Só muda como aparece no livro: o texto guardado fica como foi escrito.
 - No livro: índice clicável, marcadores (fita na página), "Editar esta",
   "Continuar leitura" e os marcadores na barra com o livro fechado.
 - **Folhas soltas**: os rascunhos mais recentes ficam como folhas sobre a mesa 3D
@@ -44,6 +50,7 @@ node scripts/gen-textures.mjs   # regera as texturas de public/textures (só se 
 node e2e/compat.mjs "../Arquivo das Sombras (1).html"   # teste com o original, após npm run build
 node e2e/shots.mjs # capturas do quarto em e2e/out, com npx vite preview --port 4173 rodando
 node e2e/book.mjs  # capturas do livro abrindo e virando páginas, em e2e/out/livro
+node e2e/capital.mjs # primeira página de uma história (letra capital), em e2e/out/capital
 node e2e/fase5.mjs # editor, acervo, marcador e índice, em e2e/out/fase5
 ```
 
