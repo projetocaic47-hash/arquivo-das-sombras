@@ -1,8 +1,7 @@
 import { Environment, Lightformer, PerformanceMonitor } from '@react-three/drei'
 import { Canvas, useFrame } from '@react-three/fiber'
-import { Suspense, useEffect, useRef, useState } from 'react'
+import { Suspense, useEffect, useState } from 'react'
 import * as THREE from 'three'
-import { sound } from '../audio/sound'
 import { atmosphere, updateAtmosphere } from './atmosphere'
 import { CameraRig } from './CameraRig'
 import { Effects } from './Effects'
@@ -19,17 +18,6 @@ import { Window } from './objects/Window'
 /** Atualiza vela e relâmpago antes de qualquer outro objeto no quadro. */
 function AtmosphereDriver() {
   useFrame((state, dt) => updateAtmosphere(state.clock.elapsedTime, dt), -1)
-  return null
-}
-
-/** Cada relâmpago na janela pede o seu trovão ao som, no mesmo instante do primeiro clarão. */
-function ThunderBridge() {
-  const last = useRef(0)
-  useFrame(() => {
-    if (atmosphere.strikes === last.current) return
-    last.current = atmosphere.strikes
-    if (atmosphere.forceLightning < 0) sound.thunder(atmosphere.strikePower, atmosphere.boltX)
-  })
   return null
 }
 
@@ -82,7 +70,6 @@ export function SceneRoot({ onReady, stories, config, onOpenSheet }: {
       />
       <color attach="background" args={['#020203']} />
       <AtmosphereDriver />
-      <ThunderBridge />
       <CameraRig />
       {/* luz rebatida muito fraca: evita preto absoluto nas áreas fora da vela */}
       <hemisphereLight args={['#2a3350', '#2a1a10', 0.05]} />

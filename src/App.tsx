@@ -1,5 +1,4 @@
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore, type ReactNode } from 'react'
-import { sound } from './audio/sound'
 import { book } from './book/controller'
 import type { BookPage } from './book/pages'
 import { drafts, EMPTY_QUERY, words, type LibraryQuery } from './data/stories'
@@ -63,7 +62,6 @@ export function App() {
   const toastTimer = useRef(0)
   const file = useRef<HTMLInputElement>(null)
   const bk = useSyncExternalStore(book.subscribe, book.getSnapshot)
-  const snd = useSyncExternalStore(sound.subscribe, sound.getPrefs)
   const cfg = archive.config
 
   const ui = useMemo<Ui>(
@@ -94,18 +92,6 @@ export function App() {
     on()
     addEventListener('resize', on)
     return () => removeEventListener('resize', on)
-  }, [])
-
-  // o navegador só deixa o som começar depois de um gesto do usuário
-  useEffect(() => {
-    if (new URLSearchParams(location.search).has('debug')) (window as unknown as { __sound: typeof sound }).__sound = sound
-    const go = () => sound.unlock()
-    addEventListener('pointerdown', go)
-    addEventListener('keydown', go)
-    return () => {
-      removeEventListener('pointerdown', go)
-      removeEventListener('keydown', go)
-    }
   }, [])
 
   // setas viram as páginas e Esc fecha o livro (fora dos painéis)
@@ -219,15 +205,6 @@ export function App() {
         <button onClick={() => openEditor(null)}>Escrever</button>
         <button onClick={() => setScreen({ k: 'sheets' })}>Folhas soltas · {loose.length}</button>
         <button onClick={() => setScreen({ k: 'settings' })}>Ajustes</button>
-        <button
-          aria-pressed={snd.on}
-          onClick={() => {
-            sound.setPrefs({ on: !snd.on })
-            sound.unlock()
-          }}
-        >
-          Som: {snd.on ? 'ligado' : 'desligado'}
-        </button>
       </nav>
 
       {ready && !bk.reading && (
@@ -269,7 +246,7 @@ export function App() {
           <button onClick={() => book.close()}>Fechar</button>
         </div>
       )}
-      <p className="phase-tag">Fase 5 · editor, acervo e som</p>
+      <p className="phase-tag">Fase 5 · editor e acervo</p>
 
       {screen?.k === 'editor' && <Editor archive={archive} story={screen.story} onExit={editorExit} />}
       {screen && screen.k !== 'editor' && (

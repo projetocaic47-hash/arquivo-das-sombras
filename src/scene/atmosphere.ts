@@ -27,10 +27,6 @@ export const atmosphere = {
   boltX: 0,
   /** semente do desenho do raio atual */
   boltSeed: 0,
-  /** conta os relâmpagos: muda no instante do primeiro clarão (o trovão do som se guia por ele) */
-  strikes: 0,
-  /** força do relâmpago atual (número de clarões, 2 a 4) */
-  strikePower: 0,
   reducedMotion: false,
   /** usado só em testes visuais: fixa o relâmpago num valor (negativo = automático) */
   forceLightning: -1,
@@ -69,8 +65,6 @@ export function updateAtmosphere(t: number, dt: number) {
       at += 0.06 + hash(t + i) * 0.16
     }
     strike = { t0: t, pulses }
-    a.strikes++
-    a.strikePower = n
     a.boltX = hash(t * 7) * 1.6 - 0.8
     a.boltSeed = Math.floor(hash(t * 13) * 1000)
     nextStrike = t + (a.reducedMotion ? 30 : 7) + hash(t * 5) * 14

@@ -1,5 +1,4 @@
-import { useCallback, useEffect, useRef, useState, type KeyboardEvent } from 'react'
-import { sound } from '../audio/sound'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { blankStory, dateBR, isEmpty, nextOrder, parseTags, pushVersion, withVersion, words } from '../data/stories'
 import type { Story, StoryStatus } from '../data/types'
 import type { Archive } from '../state/useArchive'
@@ -23,15 +22,6 @@ const fieldsOf = (s: Story): Fields => ({ t: s.t, sub: s.sub || '', x: s.x, tags
 
 const sameAs = (s: Story, f: Fields) =>
   s.t === f.t && (s.sub || '') === f.sub && s.x === f.x && (s.tags || []).join(', ') === parseTags(f.tags).join(', ') && s.st === f.st && (s.note || '') === f.note
-
-/** Som da tecla conforme o que foi digitado. */
-function keySound(e: KeyboardEvent) {
-  if (e.ctrlKey || e.metaKey || e.altKey) return
-  if (e.key === 'Enter') sound.key('enter')
-  else if (e.key === 'Backspace' || e.key === 'Delete') sound.key('delete')
-  else if (e.key === ' ') sound.key('space')
-  else if (e.key.length === 1) sound.key('char')
-}
 
 export function Editor({ archive, story, onExit }: { archive: Archive; story: Story | null; onExit: (e: EditorExit) => void }) {
   // a folha nova ganha id e data de criação agora, mas só é gravada quando tiver algo escrito
@@ -110,8 +100,6 @@ export function Editor({ archive, story, onExit }: { archive: Archive; story: St
 
   useEffect(() => {
     text.current?.focus()
-    sound.setWriting(true)
-    return () => sound.setWriting(false)
   }, [])
 
   const [error, setError] = useState('')
@@ -137,17 +125,17 @@ export function Editor({ archive, story, onExit }: { archive: Archive; story: St
       <div className="paper">
         <h3>Escrever</h3>
         {error && <p className="warn">{error}</p>}
-        <input className="e-title" placeholder="Título" aria-label="Título" value={f.t} onKeyDown={keySound} onChange={(e) => change({ t: e.target.value })} />
-        <input className="e-sub" placeholder="Subtítulo (opcional)" aria-label="Subtítulo" value={f.sub} onKeyDown={keySound} onChange={(e) => change({ sub: e.target.value })} />
-        <textarea ref={text} className="e-text" placeholder="Escreva aqui…" aria-label="Texto" value={f.x} onKeyDown={keySound} onChange={(e) => change({ x: e.target.value })} />
+        <input className="e-title" placeholder="Título" aria-label="Título" value={f.t} onChange={(e) => change({ t: e.target.value })} />
+        <input className="e-sub" placeholder="Subtítulo (opcional)" aria-label="Subtítulo" value={f.sub} onChange={(e) => change({ sub: e.target.value })} />
+        <textarea ref={text} className="e-text" placeholder="Escreva aqui…" aria-label="Texto" value={f.x} onChange={(e) => change({ x: e.target.value })} />
         <div className="e-meta">
-          <input placeholder="etiquetas, separadas por vírgula" aria-label="Etiquetas" value={f.tags} onKeyDown={keySound} onChange={(e) => change({ tags: e.target.value })} />
+          <input placeholder="etiquetas, separadas por vírgula" aria-label="Etiquetas" value={f.tags} onChange={(e) => change({ tags: e.target.value })} />
           <select aria-label="Situação" value={f.st} onChange={(e) => change({ st: e.target.value as StoryStatus })}>
             <option value="d">rascunho</option>
             <option value="f">finalizada</option>
           </select>
         </div>
-        <textarea className="e-note" placeholder="Nota pessoal (não aparece no livro)" aria-label="Nota pessoal" value={f.note} onKeyDown={keySound} onChange={(e) => change({ note: e.target.value })} />
+        <textarea className="e-note" placeholder="Nota pessoal (não aparece no livro)" aria-label="Nota pessoal" value={f.note} onChange={(e) => change({ note: e.target.value })} />
         <p className="e-count">
           {words(f.x)} palavras · {f.x.length} caracteres · editada {dateBR(edited)} · <span data-testid="save-status">{status}</span>
         </p>
