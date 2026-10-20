@@ -10,8 +10,8 @@ export const PIXEL_PALETTE = [
   '#040303', '#0a0706', '#120c0a', '#1b120e', '#241812',
   // rampa quente
   '#301e16', '#3f241a', '#58321e', '#764423', '#985a2a', '#bb7834', '#d99b45', '#efc066', '#fbe1a0', '#fff7e0',
-  // vinho e dourado gasto
-  '#5e2a35', '#8a3a46', '#7a6233', '#c5a059',
+  // vinho (capa do livro) e dourado gasto
+  '#5e2a35', '#8a3a46', '#b0505c', '#7a6233', '#c5a059',
   // neutros de gesso e papel
   '#352d2a', '#544941', '#7d7062', '#a89a86', '#d5cabc',
   // rampa fria da noite

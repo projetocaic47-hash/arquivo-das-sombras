@@ -2,6 +2,7 @@ import { RoundedBox } from '@react-three/drei'
 import { useMemo } from 'react'
 import * as THREE from 'three'
 import { BOOK, DESK } from '../layout'
+import { STYLE } from '../style'
 import { usePbr } from '../textures'
 
 /**
@@ -63,7 +64,14 @@ export function Book() {
     return tex
   }, [])
 
-  const coverMat = <meshStandardMaterial {...leather} normalScale={new THREE.Vector2(0.45, 0.45)} />
+  // couro vinho (cor da identidade) para o livro não se confundir com a madeira da mesa;
+  // no estilo pixel a capa é de cor chapada, que lê melhor em poucos pixels
+  const coverMat =
+    STYLE === 'pixel' ? (
+      <meshStandardMaterial color="#8a2c3c" roughness={0.6} />
+    ) : (
+      <meshStandardMaterial {...leather} color="#d0606e" normalScale={new THREE.Vector2(0.45, 0.45)} />
+    )
 
   return (
     <group position={[BOOK.x, DESK.height, BOOK.z]} rotation={[0, BOOK.rotY, 0]}>
@@ -83,10 +91,18 @@ export function Book() {
         <cylinderGeometry args={[t / 2, t / 2, h + over * 2, 24, 1, false, Math.PI / 2, Math.PI]} />
         {coverMat}
       </mesh>
+      {/* no estilo pixel, um filete dourado de cerca de 1 pixel em volta do livro, para destacá-lo da
+          mesa escura: caixa um pouco maior, desenhada só por dentro (casca invertida) */}
+      {STYLE === 'pixel' && (
+        <mesh position={[-0.004, (t + 0.006) / 2, 0]}>
+          <boxGeometry args={[w + over + 0.008 + 0.02, t + 0.006, h + over * 2 + 0.02]} />
+          <meshBasicMaterial color="#e0b060" side={THREE.BackSide} />
+        </mesh>
+      )}
       {/* gravação dourada */}
       <mesh position={[0, t + 0.0002, 0]} rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
         <planeGeometry args={[w * 0.92, h * 0.94]} />
-        <meshStandardMaterial color="#c9a25a" metalness={1} roughness={0.4} envMapIntensity={4} alphaMap={goldAlpha} transparent depthWrite={false} />
+        <meshStandardMaterial color="#c9a25a" metalness={1} roughness={0.4} envMapIntensity={4} emissive="#c5a059" emissiveIntensity={STYLE === 'pixel' ? 0.45 : 0} alphaMap={goldAlpha} transparent depthWrite={false} />
       </mesh>
     </group>
   )
