@@ -94,8 +94,10 @@ export function Book() {
       {/* no estilo pixel, um filete dourado de cerca de 1 pixel em volta do livro, para destacá-lo da
           mesa escura: caixa um pouco maior, desenhada só por dentro (casca invertida) */}
       {STYLE === 'pixel' && (
-        <mesh position={[-0.004, (t + 0.006) / 2, 0]}>
-          <boxGeometry args={[w + over + 0.008 + 0.02, t + 0.006, h + over * 2 + 0.02]} />
+        // o fundo da casca fica 2 mm acima do tampo: no mesmo plano da mesa, as duas superfícies
+        // disputavam o mesmo pixel e o contorno piscava
+        <mesh position={[-0.004, 0.002 + (t + 0.004) / 2, 0]}>
+          <boxGeometry args={[w + over + 0.008 + 0.02, t + 0.004, h + over * 2 + 0.02]} />
           <meshBasicMaterial color="#e0b060" side={THREE.BackSide} />
         </mesh>
       )}
