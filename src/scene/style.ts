@@ -9,9 +9,10 @@ export const STYLE: SceneStyle =
   typeof location !== 'undefined' && new URLSearchParams(location.search).get('estilo') === 'realista' ? 'realista' : 'pixel'
 
 /**
- * Tamanho de cada pixel da arte, em pixels da tela: cerca de 300 pixels de arte
- * na média geométrica de largura e altura (1440x900 vira 360x225), nunca menos de 2.
+ * Tamanho de cada pixel da arte, em pixels da tela: cerca de 560 pixels de arte
+ * na média geométrica de largura e altura (1440x900 vira 720x450), nunca menos de 2,
+ * fino o bastante para o texto das páginas ser lido sem perder o aspecto de pixel.
  */
 export function pixelSize(width: number, height: number) {
-  return Math.min(6, Math.max(2, Math.round(Math.sqrt(width * height) / 300)))
+  return Math.min(5, Math.max(2, Math.round(Math.sqrt(width * height) / 560)))
 }

@@ -81,5 +81,6 @@ async function run(name, vp) {
 }
 if (!only || only === 'pc') await run('pc', { width: 1440, height: 900 })
 if (!only || only === 'cel') await run('cel', { width: 390, height: 844 })
+if (only === 'hd') await run('hd', { width: 1920, height: 1080 })
 console.log(errors.length ? 'erros:\n' + [...new Set(errors)].join('\n') : 'sem erros no console')
 await b.close()

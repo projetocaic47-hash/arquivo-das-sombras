@@ -7,7 +7,7 @@ import { spreadPages } from '../../book/pages'
 import type { Config } from '../../data/types'
 import { BOOK, BOOK_OPEN, DESK } from '../layout'
 import { STYLE } from '../style'
-import { curlLeaf, easeTurn, restProfile, type CurlParams } from './curl'
+import { curlLeaf, easeTurn, gutterDip, restAngle, restProfile, type CurlParams } from './curl'
 import { PageTextures } from './pageArt'
 
 // Medidas do livro (m). A lombada fica em x = 0 do grupo; a metade direita vai para +x.
@@ -115,15 +115,68 @@ function spineGeometry() {
 }
 
 /**
- * Atualiza a lombada para a capa girada de `angle` (0 aberta, −π fechada) em torno do meio do miolo.
- * Liga as bordas das duas capas junto à lombada por uma curva que se abaula para fora do livro.
+ * Junta de papel: a folha de guarda que liga o lado de dentro da capa ao miolo junto à lombada.
+ * Vai da borda da página da esquerda (que gira com a capa) até a borda da página da direita,
+ * saindo e chegando na direção de cada página, e cobre o vão entre a capa e as folhas.
  */
-function updateSpine(g: THREE.BufferGeometry, angle: number, length: number) {
-  const d = (BLOCK + BOARD) / 2
+function updateJoint(g: THREE.BufferGeometry, angle: number, hingeY: number, hl: number, hr: number, length: number) {
+  const c = Math.cos(angle)
+  const s = Math.sin(angle)
+  // ponto e direção da página da esquerda junto à lombada, no grupo da capa, levados ao livro
+  const ly = BOARD / 2 + hl - gutterDip(hl) + SURFACE
+  const ax = -ly * s
+  const ay = ly * c + hingeY
+  const al = restAngle(0, hl, GUTTER)
+  const tx0 = Math.cos(al)
+  const ty0 = -Math.sin(al)
+  const dx0 = tx0 * c - ty0 * s
+  const dy0 = tx0 * s + ty0 * c
+  // ponto e direção da página da direita junto à lombada
+  const bx = 0
+  const by = hr - gutterDip(hr) + SURFACE
+  const ar = restAngle(0, hr, GUTTER)
+  const dx1 = Math.cos(ar)
+  const dy1 = Math.sin(ar)
+  const k = Math.hypot(bx - ax, by - ay) * 0.4
+  const pos = g.attributes.position as THREE.BufferAttribute
+  for (let i = 0; i <= SPINE_SEG; i++) {
+    const t = i / SPINE_SEG
+    const u = 1 - t
+    const x = u * u * u * ax + 3 * u * u * t * (ax + dx0 * k) + 3 * u * t * t * (bx - dx1 * k) + t * t * t * bx
+    const y = u * u * u * ay + 3 * u * u * t * (ay + dy0 * k) + 3 * u * t * t * (by - dy1 * k) + t * t * t * by
+    pos.setXYZ(i * 2, x, y, -length / 2)
+    pos.setXYZ(i * 2 + 1, x, y, length / 2)
+  }
+  pos.needsUpdate = true
+  g.computeVertexNormals()
+  g.computeBoundingSphere()
+}
+
+/** Altura da dobradiça da capa: no alto do miolo com o livro fechado, rente à mesa com ele aberto. */
+const HINGE_TOP = BLOCK + BOARD / 2
+const HINGE_BOTTOM = -BOARD / 2
+
+/**
+ * Como a capa abre: na primeira metade ela gira presa à borda de cima do miolo, como uma capa
+ * de verdade; passando de vertical, a dobradiça desce pela lombada até a capa deitar na mesa.
+ * Assim a capa nunca se afasta das folhas.
+ */
+export function coverHinge(cover: number) {
+  const e = easeTurn(cover)
+  const t = Math.min(1, Math.max(0, (e - 0.5) / 0.5))
+  const drop = t * t * (3 - 2 * t)
+  return { angle: -(1 - e) * Math.PI, y: HINGE_TOP + (HINGE_BOTTOM - HINGE_TOP) * drop }
+}
+
+/**
+ * Atualiza a lombada: liga a borda da contracapa (rente à mesa) à dobradiça da capa, à altura
+ * `hingeY`, por uma curva que se abaula para fora do livro.
+ */
+function updateSpine(g: THREE.BufferGeometry, hingeY: number, length: number) {
   const ax = 0
-  const ay = -BOARD / 2
-  const bx = d * Math.sin(angle)
-  const by = BLOCK / 2 - d * Math.cos(angle)
+  const ay = HINGE_BOTTOM
+  const bx = 0
+  const by = hingeY
   const len = Math.hypot(bx - ax, by - ay)
   // para fora do livro: perpendicular à linha entre as duas bordas
   const nx = len > 1e-6 ? -(by - ay) / len : -1
@@ -147,8 +200,8 @@ function updateSpine(g: THREE.BufferGeometry, angle: number, length: number) {
 type ShadeUniforms = { uEdge: { value: number }; uShade: { value: number }; uSide: { value: number } }
 
 /** Material de página com a sombra suave da folha que passa por cima (acompanha a dobra). */
-function pageMaterial(side: 1 | -1) {
-  const m = new THREE.MeshStandardMaterial({ roughness: 0.92, metalness: 0 })
+function pageMaterial(side: 1 | -1 | 0, face: THREE.Side = THREE.FrontSide) {
+  const m = new THREE.MeshStandardMaterial({ roughness: 0.92, metalness: 0, side: face })
   const u: ShadeUniforms = { uEdge: { value: 0 }, uShade: { value: 0 }, uSide: { value: side } }
   m.onBeforeCompile = (sh) => {
     Object.assign(sh.uniforms, u)
@@ -160,6 +213,11 @@ function pageMaterial(side: 1 | -1) {
       .replace(
         '#include <map_fragment>',
         `#include <map_fragment>
+        // tinta nítida: cada pixel da arte é tinta ou papel, sem cinza intermediário. A letra
+        // reduzida pela distância vira um borrão claro; aqui ela volta a ser traço escuro.
+        float lum = dot(diffuseColor.rgb, vec3(0.2126, 0.7152, 0.0722));
+        // tinta nítida: as bordas suavizadas das letras viram tinta cheia ou papel, sem cinza no meio
+        diffuseColor.rgb = mix(vec3(0.006, 0.004, 0.002), diffuseColor.rgb, smoothstep(0.16, 0.4, lum));
         // sombra da folha em movimento: escurece o que está debaixo dela, com borda macia
         float under = uSide > 0.0 ? 1.0 - smoothstep(uEdge - 0.03, uEdge + 0.006, vBookX)
                                   : smoothstep(uEdge - 0.006, uEdge + 0.03, vBookX);
@@ -184,6 +242,8 @@ export function BookModel({ config }: { config: Config }) {
   const leaf = useRef<THREE.Group>(null)
   const spine = useRef<THREE.Mesh>(null)
   const spineGeo = useMemo(() => spineGeometry(), [])
+  const joint = useRef<THREE.Mesh>(null)
+  const jointGeo = useMemo(() => spineGeometry(), [])
   const hull = useRef<THREE.Mesh>(null)
 
   // Qual folha está virando e que alturas/páginas cada parte mostra agora.
@@ -197,8 +257,8 @@ export function BookModel({ config }: { config: Config }) {
 
   const leftMat = useMemo(() => pageMaterial(-1), [])
   const rightMat = useMemo(() => pageMaterial(1), [])
-  const frontMat = useMemo(() => new THREE.MeshStandardMaterial({ roughness: 0.92, side: THREE.FrontSide }), [])
-  const backMat = useMemo(() => new THREE.MeshStandardMaterial({ roughness: 0.92, side: THREE.BackSide }), [])
+  const frontMat = useMemo(() => pageMaterial(0, THREE.FrontSide), [])
+  const backMat = useMemo(() => pageMaterial(0, THREE.BackSide), [])
   const edgeMat = useMemo(() => new THREE.MeshStandardMaterial({ color: '#c2b28c', roughness: 0.95 }), [])
   const coverColor = STYLE === 'pixel' ? '#8a2c3c' : '#6b2430'
 
@@ -253,7 +313,7 @@ export function BookModel({ config }: { config: Config }) {
     g.textAlign = 'center'
     const name = config.n || 'Arquivo das Sombras'
     // em maiúsculas a letra gótica fica ilegível: usa a letra pixel comum
-    g.font = name === name.toLocaleUpperCase('pt-BR') ? `26px "Pixelify Sans", sans-serif` : `36px "Jacquarda Bastarda 9", serif`
+    g.font = name === name.toLocaleUpperCase('pt-BR') ? `600 26px "Pixelify Sans", sans-serif` : `36px "Jacquarda Bastarda 9", serif`
     const words = name.split(/\s+/)
     words.slice(0, 4).forEach((w, i) => g.fillText(w, 180, 230 + i * 40 - (words.length - 1) * 20))
     const tex = new THREE.CanvasTexture(c)
@@ -350,11 +410,14 @@ export function BookModel({ config }: { config: Config }) {
     g.position.set(pose.x, DESK.height + BOARD, pose.z)
     g.rotation.y = pose.r
     // capa (com as folhas já lidas, ao fechar do meio do livro) gira em torno da lombada
-    const angle = -(1 - easeTurn(book.cover)) * Math.PI
-    leftPivot.current!.rotation.z = angle
+    const hinge = coverHinge(book.cover)
+    leftPivot.current!.rotation.z = hinge.angle
+    leftPivot.current!.position.y = hinge.y
     // a lombada acompanha a capa em todo o movimento; aberta, fica escondida sob as folhas
     spine.current!.visible = book.cover < 0.999
-    if (spine.current!.visible) updateSpine(spineGeo, angle, PAGE_H + OVER * 2)
+    if (spine.current!.visible) updateSpine(spineGeo, hinge.y, PAGE_H + OVER * 2)
+    joint.current!.visible = book.cover > 0 && book.cover < 0.999
+    if (joint.current!.visible) updateJoint(jointGeo, hinge.angle, hinge.y, view.left, view.right, PAGE_H)
     if (hull.current) hull.current.visible = book.cover === 0 && book.coverTarget === 0
 
     const tt = book.turn
@@ -398,8 +461,9 @@ export function BookModel({ config }: { config: Config }) {
       <mesh geometry={rightSurface} material={rightMat} receiveShadow onPointerDown={onDown} />
 
       {/* metade esquerda: capa, folhas lidas e página da esquerda; gira para fechar */}
-      <group ref={leftPivot} position={[0, BLOCK / 2, 0]}>
-        <group position={[0, -BLOCK / 2, 0]}>
+      <group ref={leftPivot}>
+        {/* a dobradiça é a borda da capa junto à lombada, no meio da espessura da capa */}
+        <group position={[0, BOARD / 2, 0]}>
           <RoundedBox args={[coverW, BOARD, coverH]} radius={0.0012} smoothness={2} position={[-coverW / 2, -BOARD / 2, 0]} castShadow receiveShadow>
             <meshStandardMaterial color={coverColor} roughness={0.6} />
           </RoundedBox>
@@ -416,6 +480,11 @@ export function BookModel({ config }: { config: Config }) {
       {/* lombada: liga capa e contracapa enquanto o livro abre ou fecha */}
       <mesh ref={spine} geometry={spineGeo} castShadow receiveShadow>
         <meshStandardMaterial color={coverColor} roughness={0.6} side={THREE.DoubleSide} />
+      </mesh>
+
+      {/* folha de guarda junto à lombada: fecha o vão entre a capa e o miolo enquanto a capa abre */}
+      <mesh ref={joint} geometry={jointGeo} receiveShadow>
+        <meshStandardMaterial color="#cfc29f" roughness={0.95} side={THREE.DoubleSide} />
       </mesh>
 
       {/* folha virando */}
