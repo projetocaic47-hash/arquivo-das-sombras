@@ -98,6 +98,52 @@ function blockGeometry(h: number, side: 1 | -1) {
   return g
 }
 
+const SPINE_SEG = 16
+
+/** Lombada flexível: uma faixa curva que liga a contracapa à capa em qualquer ângulo de abertura. */
+function spineGeometry() {
+  const g = new THREE.BufferGeometry()
+  const n = (SPINE_SEG + 1) * 2
+  g.setAttribute('position', new THREE.BufferAttribute(new Float32Array(n * 3), 3).setUsage(THREE.DynamicDrawUsage))
+  const idx: number[] = []
+  for (let i = 0; i < SPINE_SEG; i++) {
+    const a = i * 2
+    idx.push(a, a + 2, a + 1, a + 1, a + 2, a + 3)
+  }
+  g.setIndex(idx)
+  return g
+}
+
+/**
+ * Atualiza a lombada para a capa girada de `angle` (0 aberta, −π fechada) em torno do meio do miolo.
+ * Liga as bordas das duas capas junto à lombada por uma curva que se abaula para fora do livro.
+ */
+function updateSpine(g: THREE.BufferGeometry, angle: number, length: number) {
+  const d = (BLOCK + BOARD) / 2
+  const ax = 0
+  const ay = -BOARD / 2
+  const bx = d * Math.sin(angle)
+  const by = BLOCK / 2 - d * Math.cos(angle)
+  const len = Math.hypot(bx - ax, by - ay)
+  // para fora do livro: perpendicular à linha entre as duas bordas
+  const nx = len > 1e-6 ? -(by - ay) / len : -1
+  const ny = len > 1e-6 ? (bx - ax) / len : 0
+  const k = len * 0.37 + 0.0015
+  const pos = g.attributes.position as THREE.BufferAttribute
+  for (let i = 0; i <= SPINE_SEG; i++) {
+    const t = i / SPINE_SEG
+    const u = 1 - t
+    // curva de Bézier cúbica: borda da contracapa → borda da capa
+    const x = u * u * u * ax + 3 * u * u * t * (ax + nx * k) + 3 * u * t * t * (bx + nx * k) + t * t * t * bx
+    const y = u * u * u * ay + 3 * u * u * t * (ay + ny * k) + 3 * u * t * t * (by + ny * k) + t * t * t * by
+    pos.setXYZ(i * 2, x, y, -length / 2)
+    pos.setXYZ(i * 2 + 1, x, y, length / 2)
+  }
+  pos.needsUpdate = true
+  g.computeVertexNormals()
+  g.computeBoundingSphere()
+}
+
 type ShadeUniforms = { uEdge: { value: number }; uShade: { value: number }; uSide: { value: number } }
 
 /** Material de página com a sombra suave da folha que passa por cima (acompanha a dobra). */
@@ -137,6 +183,7 @@ export function BookModel({ config }: { config: Config }) {
   const leftPivot = useRef<THREE.Group>(null)
   const leaf = useRef<THREE.Group>(null)
   const spine = useRef<THREE.Mesh>(null)
+  const spineGeo = useMemo(() => spineGeometry(), [])
   const hull = useRef<THREE.Mesh>(null)
 
   // Qual folha está virando e que alturas/páginas cada parte mostra agora.
@@ -303,8 +350,11 @@ export function BookModel({ config }: { config: Config }) {
     g.position.set(pose.x, DESK.height + BOARD, pose.z)
     g.rotation.y = pose.r
     // capa (com as folhas já lidas, ao fechar do meio do livro) gira em torno da lombada
-    leftPivot.current!.rotation.z = -(1 - easeTurn(book.cover)) * Math.PI
-    spine.current!.visible = book.cover < 0.12
+    const angle = -(1 - easeTurn(book.cover)) * Math.PI
+    leftPivot.current!.rotation.z = angle
+    // a lombada acompanha a capa em todo o movimento; aberta, fica escondida sob as folhas
+    spine.current!.visible = book.cover < 0.999
+    if (spine.current!.visible) updateSpine(spineGeo, angle, PAGE_H + OVER * 2)
     if (hull.current) hull.current.visible = book.cover === 0 && book.coverTarget === 0
 
     const tt = book.turn
@@ -363,10 +413,9 @@ export function BookModel({ config }: { config: Config }) {
         </group>
       </group>
 
-      {/* lombada, visível com o livro fechado */}
-      <mesh ref={spine} position={[-0.001, BLOCK / 2, 0]} rotation={[Math.PI / 2, 0, 0]} scale={[0.55, 1, 1]} castShadow receiveShadow>
-        <cylinderGeometry args={[BLOCK / 2 + BOARD, BLOCK / 2 + BOARD, coverH, 24, 1, false, Math.PI / 2, Math.PI]} />
-        <meshStandardMaterial color={coverColor} roughness={0.6} />
+      {/* lombada: liga capa e contracapa enquanto o livro abre ou fecha */}
+      <mesh ref={spine} geometry={spineGeo} castShadow receiveShadow>
+        <meshStandardMaterial color={coverColor} roughness={0.6} side={THREE.DoubleSide} />
       </mesh>
 
       {/* folha virando */}
