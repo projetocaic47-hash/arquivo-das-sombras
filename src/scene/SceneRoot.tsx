@@ -10,6 +10,7 @@ import { Candle } from './objects/Candle'
 import { Desk } from './objects/Desk'
 import { Props } from './objects/Props'
 import { Room } from './objects/Room'
+import { pixelSize, STYLE } from './style'
 import { Window } from './objects/Window'
 
 /** Atualiza vela e relâmpago antes de qualquer outro objeto no quadro. */
@@ -18,10 +19,18 @@ function AtmosphereDriver() {
   return null
 }
 
-/** O quarto: mesa, janela com chuva, vela e livro fechado (Fase 3). */
+/** O quarto: mesa, janela com chuva, vela e livro fechado (Fase 3), no estilo definido em style.ts. */
 export function SceneRoot({ onReady }: { onReady?: () => void }) {
   const [quality, setQuality] = useState<'high' | 'low'>('high')
-  const [dpr, setDpr] = useState(1.5)
+  const [dpr, setDpr] = useState(STYLE === 'pixel' ? 1 / pixelSize(innerWidth, innerHeight) : 1.5)
+
+  // no estilo pixel a resolução da arte acompanha o tamanho da janela
+  useEffect(() => {
+    if (STYLE !== 'pixel') return
+    const on = () => setDpr(1 / pixelSize(innerWidth, innerHeight))
+    addEventListener('resize', on)
+    return () => removeEventListener('resize', on)
+  }, [])
 
   useEffect(() => {
     const mq = matchMedia('(prefers-reduced-motion: reduce)')
@@ -35,7 +44,7 @@ export function SceneRoot({ onReady }: { onReady?: () => void }) {
 
   return (
     <Canvas
-      className="scene"
+      className={'scene' + (STYLE === 'pixel' ? ' pixel' : '')}
       shadows={{ type: THREE.PCFShadowMap }}
       dpr={dpr}
       camera={{ position: [0.02, 1.24, 0.72], fov: 46, near: 0.02, far: 120 }}
@@ -44,6 +53,8 @@ export function SceneRoot({ onReady }: { onReady?: () => void }) {
     >
       <PerformanceMonitor
         onDecline={() => {
+          // o estilo pixel já desenha poucos pixels; só o realista precisa baixar a resolução
+          if (STYLE === 'pixel') return
           setDpr(1)
           setQuality('low')
         }}
@@ -70,7 +81,7 @@ export function SceneRoot({ onReady }: { onReady?: () => void }) {
         <Props />
         <Ready onReady={onReady} />
       </Suspense>
-      <Effects quality={quality} />
+      <Effects quality={quality} style={STYLE} />
     </Canvas>
   )
 }

@@ -18,7 +18,7 @@ export function App() {
       <nav className="topbar">
         <button onClick={() => setPanel(true)}>Acervo</button>
       </nav>
-      <p className="phase-tag">Fase 3 · protótipo do quarto</p>
+      <p className="phase-tag">Fase 3 · protótipo do quarto · estilo pixel</p>
       {panel && (
         <div className="overlay" role="dialog" aria-modal="true" aria-label="Acervo" onKeyDown={(e) => e.key === 'Escape' && setPanel(false)}>
           <div className="sheet">

@@ -7,6 +7,11 @@ O HTML original continua intocado na pasta do projeto e é a referência.
 parede, mesa, janela com chuva e relâmpagos, vela e livro fechado. O painel de
 dados da Fase 2 abre pelo botão "Acervo". O livro abre e folheia na Fase 4.
 
+**Estilo gráfico: pixel 3D** (escolha do diretor criativo em 20/10/2026). A mesma
+cena 3D é desenhada em baixa resolução, ampliada sem suavizar, com paleta limitada
+e pontilhado (`src/scene/style.ts`, `src/scene/shaders/palette.ts`). O visual
+realista continua acessível com `?estilo=realista`.
+
 ## Como rodar (para quem desenvolve)
 
 Requer Node.js 20 ou mais novo.
