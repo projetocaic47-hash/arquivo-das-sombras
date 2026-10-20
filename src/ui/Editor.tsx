@@ -1,7 +1,8 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState, type ReactNode, type RefObject } from 'react'
 import { blankStory, dateBR, isEmpty, nextOrder, parseTags, pushVersion, withVersion, words } from '../data/stories'
 import type { Story, StoryStatus } from '../data/types'
 import type { Archive } from '../state/useArchive'
+import { useModal } from './focus'
 
 // Editor de uma história, com as regras do original: grava sozinho 0,7 s depois de
 // cada mudança (e ao fechar, e com Ctrl+S), guarda versões anteriores a cada 10 minutos
@@ -119,9 +120,14 @@ export function Editor({ archive, story, onExit }: { archive: Archive; story: St
     change({ t: v.t, x: v.x })
   }
 
+  // Esc: sai do modo foco; fora dele, grava e fecha (como o botão "fechar")
+  const box = useRef<HTMLDivElement>(null)
+  useModal(box, () => (focus ? setFocus(false) : exit(undefined, () => ({ to: 'stay' }))), () => text.current)
+  const versionsBox = useRef<HTMLDivElement>(null)
+
   const edited = saved.current?.u ?? fresh.current.u
   return (
-    <div className={'editor' + (focus ? ' focus' : '')} role="dialog" aria-modal="true" aria-label="Escrever">
+    <div className={'editor' + (focus ? ' focus' : '')} role="dialog" aria-modal="true" aria-label="Escrever" ref={box}>
       <div className="paper">
         <h3>Escrever</h3>
         {error && <p className="warn">{error}</p>}
@@ -153,8 +159,7 @@ export function Editor({ archive, story, onExit }: { archive: Archive; story: St
         </div>
       </div>
       {versions && (
-        <div className="overlay" role="dialog" aria-modal="true" aria-label="Versões anteriores">
-          <div className="modal">
+        <Versions boxRef={versionsBox} onClose={() => setVersions(false)}>
             <h3>Versões anteriores</h3>
             {saved.current?.v?.length ? (
               <ul className="list">
@@ -176,9 +181,17 @@ export function Editor({ archive, story, onExit }: { archive: Archive; story: St
             <div className="row">
               <button onClick={() => setVersions(false)}>fechar</button>
             </div>
-          </div>
-        </div>
+        </Versions>
       )}
+    </div>
+  )
+}
+
+function Versions({ boxRef, onClose, children }: { boxRef: RefObject<HTMLDivElement | null>; onClose: () => void; children: ReactNode }) {
+  useModal(boxRef, onClose)
+  return (
+    <div className="overlay" role="dialog" aria-modal="true" aria-label="Versões anteriores" ref={boxRef}>
+      <div className="modal">{children}</div>
     </div>
   )
 }

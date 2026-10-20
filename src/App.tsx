@@ -8,7 +8,10 @@ import { restoreBackup } from './ui/backupFlow'
 import { Dialog } from './ui/Dialog'
 import { Editor, type EditorExit } from './ui/Editor'
 import { anchorDownload, saveFile } from './ui/files'
+import { useModal } from './ui/focus'
 import { Library } from './ui/Library'
+import { Reader } from './ui/Reader'
+import { hasWebGL, SceneBoundary } from './ui/SceneBoundary'
 import { Settings } from './ui/Settings'
 import type { Ui } from './ui/ui'
 
@@ -49,12 +52,16 @@ type Screen =
   | { k: 'sheets' }
   | { k: 'paste' }
   | { k: 'copy'; name: string; text: string }
+  | { k: 'read'; id: string }
 
 type Ask = { text: ReactNode; choices: string[]; resolve: (i: number) => void }
 
 export function App() {
   const archive = useArchive()
   const [ready, setReady] = useState(false)
+  // sem 3D (navegador antigo, aceleração desligada, erro no quarto): o app segue sem o quarto
+  const [noScene, setNoScene] = useState(() => !hasWebGL())
+  const [lost, setLost] = useState(false)
   const [screen, setScreen] = useState<Screen | null>(null)
   const [query, setQuery] = useState<LibraryQuery>(EMPTY_QUERY)
   const [ask, setAsk] = useState<Ask | null>(null)
@@ -115,10 +122,11 @@ export function App() {
     (id: string) => {
       const i = first.get(id)
       // história recém-gravada: o livro ainda está sendo repaginado; vai quando ficar pronto
-      if (i === undefined) pendingStory.current = id
+      if (noScene) setScreen({ k: 'read', id })
+      else if (i === undefined) pendingStory.current = id
       else book.goToPage(i)
     },
-    [first],
+    [first, noScene],
   )
   useEffect(() => {
     const id = pendingStory.current
@@ -187,10 +195,31 @@ export function App() {
 
   return (
     <>
-      <Suspense fallback={null}>
-        <SceneRoot onReady={() => setReady(true)} stories={archive.stories} config={cfg} onOpenSheet={openSheet} />
-      </Suspense>
-      <div className={'loading' + (ready ? ' done' : '')} aria-live="polite" data-ready={ready}>
+      {noScene ? (
+        <>
+          <div className="noscene" />
+          {!screen && (
+            <p className="noscene-note" role="status">
+              <b>O quarto 3D não abriu neste navegador</b>
+              Suas histórias estão guardadas e tudo continua funcionando: Acervo, Escrever, Folhas soltas e Ajustes. No Acervo, “ler” abre a história
+              em modo de leitura simples.
+            </p>
+          )}
+        </>
+      ) : (
+        <SceneBoundary onFail={() => setNoScene(true)}>
+          <Suspense fallback={null}>
+            <SceneRoot onReady={() => setReady(true)} onLost={setLost} stories={archive.stories} config={cfg} onOpenSheet={openSheet} />
+          </Suspense>
+        </SceneBoundary>
+      )}
+      {lost && (
+        <p className="warnbar" role="alert">
+          O desenho do quarto parou (o navegador liberou a placa de vídeo). Suas histórias estão a salvo.{' '}
+          <button onClick={() => location.reload()}>Recarregar</button>
+        </p>
+      )}
+      <div className={'loading' + (ready || noScene ? ' done' : '')} aria-live="polite" data-ready={ready || noScene}>
         acendendo a vela…
       </div>
       {archive.status.kind === 'error' && <p className="warnbar">{archive.status.message}</p>}
@@ -207,7 +236,7 @@ export function App() {
         <button onClick={() => setScreen({ k: 'settings' })}>Ajustes</button>
       </nav>
 
-      {ready && !bk.reading && (
+      {ready && !noScene && !bk.reading && (
         <div className="bookbar closed">
           <div className="row">
             <button onClick={() => book.open()}>Abrir o livro</button>
@@ -246,12 +275,11 @@ export function App() {
           <button onClick={() => book.close()}>Fechar</button>
         </div>
       )}
-      <p className="phase-tag">Fase 5 · editor e acervo</p>
+      <p className="phase-tag">Fase 6 · acabamento</p>
 
       {screen?.k === 'editor' && <Editor archive={archive} story={screen.story} onExit={editorExit} />}
       {screen && screen.k !== 'editor' && (
-        <div className="overlay" role="dialog" aria-modal="true" onKeyDown={(e) => e.key === 'Escape' && !ask && setScreen(null)}>
-          <div className="sheet">
+        <Sheet onClose={() => setScreen(null)}>
             {screen.k === 'library' && (
               <Library
                 archive={archive}
@@ -290,9 +318,13 @@ export function App() {
               </section>
             )}
             {screen.k === 'paste' && <PasteBackup onCancel={() => setScreen(null)} onGo={(t) => restoreBackup(t, archive, ui).then((ok) => ok && setScreen(null))} />}
+            {screen.k === 'read' &&
+              (() => {
+                const s = archive.stories.find((x) => x.id === screen.id)
+                return s ? <Reader story={s} onEdit={() => openEditor(s)} onClose={() => setScreen(null)} /> : null
+              })()}
             {screen.k === 'copy' && <CopyFile name={screen.name} text={screen.text} ui={ui} onClose={() => setScreen(null)} />}
-          </div>
-        </div>
+        </Sheet>
       )}
 
       <input
@@ -322,6 +354,17 @@ export function App() {
         </Dialog>
       )}
     </>
+  )
+}
+
+/** Painel por cima do quarto (acervo, ajustes, folhas soltas…), com foco e Esc. */
+function Sheet({ onClose, children }: { onClose: () => void; children: ReactNode }) {
+  const box = useRef<HTMLDivElement>(null)
+  useModal(box, onClose)
+  return (
+    <div className="overlay" role="dialog" aria-modal="true" ref={box}>
+      <div className="sheet">{children}</div>
+    </div>
   )
 }
 

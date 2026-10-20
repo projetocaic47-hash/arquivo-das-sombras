@@ -19,6 +19,19 @@ const READ_HALF_SINGLE = { w: 0.098, h: 0.15 }
 /** direção da largura do livro aberto, para deslizar entre as páginas */
 const ACROSS = new THREE.Vector3(1, 0, 0).applyAxisAngle(new THREE.Vector3(0, 1, 0), READING_ROT_Y)
 
+/**
+ * Faixas da tela ocupadas pelos botões (px): a barra do alto e a do livro, quando estão
+ * deitadas. O livro aberto é enquadrado no espaço que sobra, para nenhuma linha ficar
+ * escondida atrás deles. (No celular deitado elas ficam em pé, nas laterais.)
+ */
+function reserved(H: number) {
+  const t = document.querySelector('.topbar')?.getBoundingClientRect()
+  const b = document.querySelector('.bookbar')?.getBoundingClientRect()
+  const top = t && t.height < H * 0.3 ? t.bottom + 6 : 0
+  const bottom = b && b.width > b.height ? H - b.top + 6 : 0
+  return { top, bottom }
+}
+
 /** Câmera sentada diante da mesa, com respiração lenta e leve paralaxe do mouse. */
 export function CameraRig() {
   const camera = useThree((s) => s.camera)
@@ -49,6 +62,7 @@ export function CameraRig() {
     cam.updateProjectionMatrix()
   }, [camera, size])
 
+  const offset = useRef(0)
   useFrame((_, dt) => {
     const t = atmosphere.time
     // aproximação suave do livro; sem animação, vai direto
@@ -71,7 +85,17 @@ export function CameraRig() {
       const cam = camera as THREE.PerspectiveCamera
       const vt = Math.tan((cam.fov * Math.PI) / 360)
       const half = book.single ? READ_HALF_SINGLE : READ_HALF
-      const d = Math.max(half.w / (vt * cam.aspect), half.h / vt)
+      const H = size.height
+      const band = reserved(H)
+      const f = Math.max(0.4, (H - band.top - band.bottom) / H)
+      const d = Math.max(half.w / (vt * cam.aspect), half.h / (vt * f))
+      // centro do livro no meio do espaço livre entre as barras
+      const shift = Math.round(((band.top - band.bottom) / 2) * r)
+      if (shift !== offset.current) {
+        offset.current = shift
+        if (shift) cam.setViewOffset(size.width, H, 0, -shift, size.width, H)
+        else cam.clearViewOffset()
+      }
       // no modo de uma página, a câmera desliza até o meio da página em foco
       const goalX = book.single ? (book.side === 1 ? 1 : -1) * (PAGE_W / 2) : 0
       across.current = atmosphere.reducedMotion ? goalX : across.current + (goalX - across.current) * (1 - Math.exp(-dt * 3))
@@ -79,6 +103,9 @@ export function CameraRig() {
       tmp.copy(READ_DIR).multiplyScalar(d).add(focus)
       pos.lerp(tmp, r)
       look.lerp(focus, r)
+    } else if (offset.current) {
+      offset.current = 0
+      ;(camera as THREE.PerspectiveCamera).clearViewOffset()
     }
     camera.position.copy(pos)
     camera.lookAt(look)

@@ -122,3 +122,27 @@ textarea.big { min-height: 260px; font-size: 0.85rem; }
   .editor .e-meta { flex-direction: column; }
 }
 @media (max-width: 600px) { .phase-tag { display: none; } }
+
+/* Fase 6: sem 3D, leitura simples com a mesma diagramação do livro */
+.noscene { position: fixed; inset: 0; background: radial-gradient(ellipse at 50% 70%, #2a1a0e 0%, #050403 70%); }
+.noscene-note { position: fixed; left: 50%; top: 50%; transform: translate(-50%, -50%); width: min(560px, calc(100% - 32px)); margin: 0; text-align: center; color: var(--ink); line-height: 1.5; }
+.noscene-note b { display: block; font: 600 1rem var(--h); letter-spacing: 0.12em; color: var(--gold); margin-bottom: 8px; }
+.reader { background: #e8dcc0; color: #2a1d12; border: 1px solid #3a2c1c; max-width: 640px; padding: 40px 32px; margin: 0 auto; }
+.reader h3 { font: 600 1.6rem var(--h); color: #4a1d24; text-align: center; margin: 0 0 4px; }
+.reader-sub { text-align: center; font-style: italic; margin: 0 0 24px; }
+.reader-text p { margin: 0; text-indent: 1.6em; text-align: justify; hyphens: auto; line-height: 1.55; }
+.reader-text p:first-child, .reader-text .scene-break + p { text-indent: 0; }
+.reader-text p:first-child::first-letter { float: left; font: 3.6em/0.85 var(--h); color: #8a3a46; padding: 4px 8px 0 0; }
+.reader-text .scene-break { text-align: center; text-indent: 0; color: #9a7a3a; margin: 12px 0; }
+.reader .row button { color: #4a1d24; border-color: rgba(74, 29, 36, 0.5); background: transparent; }
+@media (max-width: 600px) { .reader { padding: 28px 18px; } }
+
+/* Celular deitado: as barras ficam em pé nas laterais e o livro usa toda a altura */
+@media (orientation: landscape) and (max-height: 520px) {
+  .topbar { flex-direction: column; flex-wrap: nowrap; right: auto; align-items: stretch; }
+  .topbar button { padding: 7px 9px; font-size: 0.6rem; }
+  .bookbar:not(.closed) { left: auto; right: 12px; bottom: auto; top: 50%; transform: translateY(-50%); flex-direction: column; flex-wrap: nowrap; gap: 5px; width: auto; }
+  .bookbar:not(.closed) button { padding: 6px 9px; font-size: 0.6rem; }
+  .bookbar:not(.closed) .pos { min-width: 0; font-size: 0.8rem; }
+  .phase-tag { display: none; }
+}

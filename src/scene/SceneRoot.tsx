@@ -22,8 +22,10 @@ function AtmosphereDriver() {
 }
 
 /** O quarto: mesa, janela com chuva, vela e livro fechado (Fase 3), no estilo definido em style.ts. */
-export function SceneRoot({ onReady, stories, config, onOpenSheet }: {
+export function SceneRoot({ onReady, onLost, stories, config, onOpenSheet }: {
   onReady?: () => void
+  /** a placa de vídeo foi liberada pelo navegador (true) ou voltou (false) */
+  onLost?: (lost: boolean) => void
   stories: Story[]
   config: Config
   onOpenSheet: (id: string | null) => void
@@ -42,14 +44,15 @@ export function SceneRoot({ onReady, stories, config, onOpenSheet }: {
   }, [])
 
   useEffect(() => {
+    // calma pedida pelo sistema ou em Ajustes ("Reduzir animações"): vela, relâmpagos e câmera
     const mq = matchMedia('(prefers-reduced-motion: reduce)')
-    atmosphere.reducedMotion = mq.matches
-    const on = () => (atmosphere.reducedMotion = mq.matches)
+    const on = () => (atmosphere.reducedMotion = mq.matches || !!config.rm)
+    on()
     mq.addEventListener('change', on)
     // ?debug expõe o estado atmosférico para os testes visuais automáticos
     if (new URLSearchParams(location.search).has('debug')) (window as unknown as { __atmos: typeof atmosphere }).__atmos = atmosphere
     return () => mq.removeEventListener('change', on)
-  }, [])
+  }, [config.rm])
 
   return (
     <Canvas
@@ -59,6 +62,10 @@ export function SceneRoot({ onReady, stories, config, onOpenSheet }: {
       camera={{ position: [0.02, 1.24, 0.72], fov: 46, near: 0.02, far: 120 }}
       gl={{ antialias: false, powerPreference: 'high-performance', toneMapping: THREE.NoToneMapping }}
       aria-hidden="true"
+      onCreated={({ gl }) => {
+        gl.domElement.addEventListener('webglcontextlost', () => onLost?.(true))
+        gl.domElement.addEventListener('webglcontextrestored', () => onLost?.(false))
+      }}
     >
       <PerformanceMonitor
         onDecline={() => {
