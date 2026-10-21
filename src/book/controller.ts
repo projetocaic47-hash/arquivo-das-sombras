@@ -24,7 +24,12 @@ export interface Turn {
   /** leitura em tela cheia com uma página por vez: a folha é a própria página `from` (avançar)
    * ou `from − 1` (voltar), e o fim da virada mostra a página `from + dir` */
   page?: boolean
+  /** a virada começou num arraste (ao assentar, a folha "pousa") */
+  dragged?: boolean
 }
+
+/** Momentos do livro que têm som (o app liga isto ao motor de efeitos). */
+export type BookSound = 'open' | 'close' | 'thud' | 'turn' | 'flick' | 'lift' | 'land'
 
 export interface BookSnapshot {
   pages: BookPage[]
@@ -59,6 +64,8 @@ export class BookController {
   /** a leitura em tela cheia está à vista: ela anima o livro e, com uma página por vez, cada página vira */
   flat = false
   side: 0 | 1 = 0
+  /** avisado nos momentos com som; não interfere na animação */
+  sound: (s: BookSound) => void = () => {}
   private listeners = new Set<Listener>()
   private snap: BookSnapshot = { pages: [], spread: 0, last: 1, reading: false, turning: false, single: false, side: 0 }
 
@@ -111,6 +118,7 @@ export class BookController {
     if (this.coverTarget === 1) return
     this.coverTarget = 1
     this.closingFrom = 0
+    this.sound('open')
     this.side = 0
     if (this.reducedMotion) this.cover = 1
     if (this.spread === 0) this.spread = 1
@@ -146,11 +154,13 @@ export class BookController {
     this.jump = null
     this.closingFrom = this.spread
     this.coverTarget = 0
-    if (this.reducedMotion) this.finishClose()
+    this.sound('close')
+    if (this.reducedMotion) this.finishClose(true)
     this.emit()
   }
 
-  private finishClose() {
+  private finishClose(quiet = false) {
+    if (!quiet) this.sound('thud')
     this.cover = 0
     this.spread = 0
     this.closingFrom = 0
@@ -198,13 +208,14 @@ export class BookController {
         if (dir === -1 && !drag) this.close()
         return false
       }
+      if (!drag) this.sound(this.jump ? 'flick' : 'turn')
       if (this.reducedMotion && !drag) {
         this.setPage(to)
         this.emit()
         return true
       }
       const p = dir === 1 ? 0 : 1
-      this.turn = { from, dir, p, drag, target: p, side0: this.side, page: true }
+      this.turn = { from, dir, p, drag, target: p, side0: this.side, page: true, dragged: drag }
       this.emit()
       return true
     }
@@ -216,13 +227,14 @@ export class BookController {
     const side0 = this.side
     // a página que aparece depois da virada: a da esquerda ao avançar, a da direita ao voltar
     this.side = dir === 1 ? 0 : 1
+    if (!drag) this.sound(this.jump ? 'flick' : 'turn')
     if (this.reducedMotion && !drag) {
       this.spread += dir
       this.emit()
       return true
     }
     const p = dir === 1 ? 0 : 1
-    this.turn = { from: this.spread, dir, p, drag, target: p, side0 }
+    this.turn = { from: this.spread, dir, p, drag, target: p, side0, dragged: drag }
     this.emit()
     return true
   }
@@ -230,7 +242,9 @@ export class BookController {
   /** Começa a arrastar uma folha; devolve falso se não há folha para esse lado. */
   beginDrag(dir: 1 | -1) {
     if (this.turn || this.cover !== 1 || this.coverTarget !== 1) return false
-    return this.startTurn(dir, true)
+    const ok = this.startTurn(dir, true)
+    if (ok) this.sound('lift')
+    return ok
   }
 
   dragTo(p: number) {
@@ -277,6 +291,7 @@ export class BookController {
       } else if (t.settle !== 0) this.spread = t.from + t.dir
       else this.side = t.side0
       this.turn = null
+      if (t.dragged) this.sound('land')
       this.emit()
       this.drainQueue()
     }

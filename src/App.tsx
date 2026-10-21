@@ -1,5 +1,6 @@
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore, type ReactNode } from 'react'
-import { book } from './book/controller'
+import { installSound, setReducedSound, sfx, type SoundName } from './audio/sfx'
+import { book, type BookSound } from './book/controller'
 import type { BookPage } from './book/pages'
 import { drafts, EMPTY_QUERY, words, type LibraryQuery } from './data/stories'
 import type { PageRef, Story } from './data/types'
@@ -83,6 +84,26 @@ function CloudBadge({ s }: { s: Archive['cloud'] }) {
 
 type Ask = { text: ReactNode; choices: string[]; resolve: (i: number) => void }
 
+// sons do livro e das janelas (um só lugar decide qual efeito acompanha cada momento)
+const BOOK_SOUNDS: Record<BookSound, SoundName> = {
+  open: 'book.open',
+  close: 'book.close',
+  thud: 'book.thud',
+  turn: 'page.turn',
+  flick: 'page.flick',
+  lift: 'page.lift',
+  land: 'page.land',
+}
+const OPEN_SOUNDS: Record<Screen['k'], SoundName> = {
+  library: 'box.open',
+  settings: 'candle.breath',
+  editor: 'quill.dip',
+  sheets: 'paper.pick',
+  read: 'paper.pick',
+  paste: 'paper.pick',
+  copy: 'paper.pick',
+}
+
 export function App() {
   const archive = useArchive()
   const [ready, setReady] = useState(false)
@@ -116,6 +137,7 @@ export function App() {
     () => ({
       ask: (text, choices) => new Promise<number>((resolve) => setAsk({ text, choices, resolve })),
       toast: (m) => {
+        if (/^(Erro|Não foi possível|Falha)/.test(m)) sfx('ui.error')
         setToast(m)
         clearTimeout(toastTimer.current)
         toastTimer.current = window.setTimeout(() => setToast(''), 4500)
@@ -134,6 +156,30 @@ export function App() {
     }),
     [],
   )
+
+  useEffect(() => {
+    installSound()
+    book.sound = (s) => sfx(BOOK_SOUNDS[s])
+    return () => {
+      book.sound = () => {}
+    }
+  }, [])
+  useEffect(() => setReducedSound(!!cfg.rm), [cfg.rm])
+
+  // abrir e fechar janelas: cada uma com o seu som (a caixa do Acervo, a vela dos Ajustes…)
+  const prevScreen = useRef<Screen['k'] | null>(null)
+  const exitTo = useRef<EditorExit['to'] | null>(null)
+  useEffect(() => {
+    const was = prevScreen.current
+    const now = screen?.k ?? null
+    prevScreen.current = now
+    if (was === now) return
+    if (now) sfx(OPEN_SOUNDS[now])
+    else if (was === 'library') sfx('box.close')
+    else if (was === 'editor' && (exitTo.current === 'book' || exitTo.current === 'desk')) sfx('paper.place')
+    else if (was) sfx('panel.close')
+    exitTo.current = null
+  }, [screen?.k])
 
   useEffect(() => {
     const on = () => book.setSingle(isSingle())
@@ -212,7 +258,7 @@ export function App() {
     if (k >= 0) bm.splice(k, 1)
     else bm.push(viewRef)
     archive.updateConfig({ bm }).then(
-      () => ui.toast(k >= 0 ? 'Marcador removido.' : 'Página marcada — ela aparece na capa.'),
+      () => (sfx('ribbon.mark', { down: k >= 0 }), ui.toast(k >= 0 ? 'Marcador removido.' : 'Página marcada — ela aparece na capa.')),
       (e: Error) => ui.toast('Não foi possível salvar: ' + e.message),
     )
   }
@@ -228,6 +274,7 @@ export function App() {
   // ---- telas ----
   const openEditor = (story: Story | null) => setScreen({ k: 'editor', story })
   const editorExit = (e: EditorExit) => {
+    exitTo.current = e.to
     setScreen(null)
     if (e.to === 'book') goToStory(e.id)
     else if (e.to === 'desk') book.close()
@@ -235,6 +282,24 @@ export function App() {
   const openSheet = (id: string | null) => {
     if (screen) return
     openEditor(id ? (archive.stories.find((s) => s.id === id) ?? null) : null)
+  }
+
+  /** Manda a história à vista para a lixeira (como no Acervo: dá para recuperar de lá). */
+  const trashInView = async (s: Story) => {
+    const k = await ui.ask(
+      <p>
+        Excluir <b>{s.t || 'Sem título'}</b> do livro? Ela vai para a lixeira do Acervo, de onde dá para recuperar.
+      </p>,
+      ['Excluir', 'Manter'],
+    )
+    if (k !== 0) return
+    try {
+      await archive.saveStories([{ ...s, del: true }])
+      sfx('paper.crumple')
+      ui.toast('História enviada para a lixeira.')
+    } catch (e) {
+      ui.toast('Não foi possível excluir: ' + (e as Error).message)
+    }
   }
 
   const visible = archive.stories.filter((s) => !s.del).length
@@ -339,6 +404,7 @@ export function App() {
             {marked ? 'Desmarcar' : 'Marcar'}
           </button>
           {storyInView && <button onClick={() => openEditor(storyInView)}>Editar esta</button>}
+          {storyInView && <button onClick={() => trashInView(storyInView)}>Excluir esta</button>}
           <button onClick={() => book.close()}>Fechar</button>
         </div>
       )}

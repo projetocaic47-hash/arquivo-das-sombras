@@ -3,6 +3,7 @@ import { blankStory, dateBR, isEmpty, nextOrder, parseTags, pushVersion, withVer
 import type { Story, StoryStatus } from '../data/types'
 import type { Archive } from '../state/useArchive'
 import { useModal } from './focus'
+import { sfx } from '../audio/sfx'
 
 // Editor de uma história, com as regras do original: grava sozinho 0,7 s depois de
 // cada mudança (e ao fechar, e com Ctrl+S), guarda versões anteriores a cada 10 minutos
@@ -146,10 +147,10 @@ export function Editor({ archive, story, onExit }: { archive: Archive; story: St
           {words(f.x)} palavras · {f.x.length} caracteres · editada {dateBR(edited)} · <span data-testid="save-status">{status}</span>
         </p>
         <div className="row e-actions">
-          <button onClick={() => setFocus(!focus)} aria-pressed={focus}>
+          <button onClick={() => (sfx('ui.tick', { on: !focus }), setFocus(!focus))} aria-pressed={focus}>
             modo foco
           </button>
-          <button onClick={() => setVersions(true)}>versões</button>
+          <button onClick={() => (sfx('paper.pick'), setVersions(true))}>versões</button>
           <button onClick={() => exit({ st: 'd' }, () => ({ to: 'desk' }))}>deixar na mesa</button>
           <button onClick={() => exit({ st: 'f' }, (s) => (s ? { to: 'book', id: s.id } : { to: 'stay' }))}>enviar ao livro</button>
           <button className="primary" onClick={() => exit(undefined, (s) => (s ? { to: 'book', id: s.id } : { to: 'stay' }))}>
@@ -171,7 +172,7 @@ export function Editor({ archive, story, onExit }: { archive: Archive; story: St
                       <div>
                         <b>{v.t || 'Sem título'}</b> <i>{new Date(v.u).toLocaleString('pt-BR')} · {words(v.x)} palavras</i>
                       </div>
-                      <button onClick={() => restoreVersion(i)}>restaurar</button>
+                      <button onClick={() => (sfx('paper.pick'), restoreVersion(i))}>restaurar</button>
                     </li>
                   ))}
               </ul>

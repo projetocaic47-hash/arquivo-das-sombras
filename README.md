@@ -57,7 +57,9 @@ privada da conta, e aparece nos outros aparelhos. Sem conexão, as mudanças fic
 pendentes e sobem depois; conflitos viram cópias, nunca sobrescrevem. O aviso no canto de
 baixo diz "salvo na nuvem", "salvando…", "alterações pendentes" ou "só neste aparelho".
 
-**Porta de entrada** (`src/entrance/`): o app começa diante de uma porta em pixel art. Bater três vezes no centro, acender a vela da direita e tocar o cartaz da esquerda abre a porta. Sons em `public/sons/` (lista em `public/sons/lista.json`).
+**Porta de entrada** (`src/entrance/`): o app começa diante de uma porta em pixel art. Bater três vezes no centro, acender a vela da direita e tocar o cartaz da esquerda abre a porta. Os sons da porta são sintetizados; arquivos gravados em `public/sons/` (listados em `public/sons/lista.json`) substituem os sintetizados.
+
+**Efeitos sonoros** (`src/audio/`): papel, couro, madeira, cera e ferro, sintetizados na hora com Web Audio, sem arquivos nem bibliotecas e sem música de fundo. Em Ajustes: ligar/desligar e volume (guardados no navegador). Detalhes e lista dos sons em [docs/SONS.md](docs/SONS.md).
 
 O banco continua o mesmo do original (versão 1, mesmos campos): o original lê o que a
 nova app escreve, e o contrário (`node e2e/compat.mjs`).
@@ -98,6 +100,7 @@ A pasta `dist/` precisa ser servida por um servidor web (por exemplo
 | `src/data/` | tipos dos registros, acesso ao IndexedDB, backup, restauração e regras das histórias (`stories.ts`) |
 | `src/book/` | livro sem 3D: paginação (`pages.ts`) e estado das animações (`controller.ts`) |
 | `src/state/` | estado do acervo em memória ligado ao banco e à nuvem |
+| `src/audio/` | efeitos sonoros: receitas (`synth.ts`) e motor central (`sfx.ts`) |
 | `src/entrance/` | porta de entrada: sequência (`puzzle.ts`), sons (`sound.ts`) e desenho (`Entrance.tsx`) |
 | `src/ui/` | interface: editor, acervo, ajustes, perguntas e entrega de arquivos |
 | `src/scene/book/` | livro 3D: modelo, curvatura da folha (`curl.ts`) e desenho das páginas (`pageArt.ts`) |
@@ -106,6 +109,7 @@ A pasta `dist/` precisa ser servida por um servidor web (por exemplo
 | `public/textures/` | texturas geradas |
 | `tests/` | testes automáticos (Vitest + fake-indexeddb) |
 | `e2e/` | teste de compatibilidade com o HTML original em Chromium |
+| `docs/SONS.md` | sons: onde cada um toca e como trocar por arquivos |
 | `docs/DADOS.md` | formato do banco e regras de compatibilidade |
 
 ## Dependências

@@ -2,6 +2,7 @@ import { allMarkdown, allTags, dateBR, duplicate, libraryList, slug, stats, stor
 import type { Story } from '../data/types'
 import type { Archive } from '../state/useArchive'
 import { makeBackup } from './backupFlow'
+import { sfx } from '../audio/sfx'
 import type { Ui } from './ui'
 
 const WEEK = 6048e5
@@ -30,7 +31,7 @@ export function Library({ archive: a, ui, query, setQuery, onRead, onEdit, onClo
       </p>,
       ['Excluir para sempre', 'Manter'],
     )
-    if (k === 0) a.purgeStory(s.id).catch(fail)
+    if (k === 0) a.purgeStory(s.id).then(() => sfx('paper.tear'), fail)
   }
 
   return (
@@ -61,11 +62,11 @@ export function Library({ archive: a, ui, query, setQuery, onRead, onEdit, onClo
         </select>
       </div>
       <div className="row">
-        <button onClick={() => makeBackup(a, ui)}>Backup do acervo</button>
+        <button onClick={() => (sfx('seal.stamp'), makeBackup(a, ui))}>Backup do acervo</button>
         <button onClick={() => ui.pickBackup()}>Restaurar backup</button>
         <button onClick={() => ui.paste()}>Colar backup</button>
-        <button onClick={() => ui.offer('arquivo-das-sombras.md', allMarkdown(a.stories))}>Exportar tudo .md</button>
-        <button onClick={() => setQuery({ ...query, tr: !query.tr })}>{query.tr ? '← voltar ao acervo' : `Lixeira (${st.trash})`}</button>
+        <button onClick={() => (sfx('paper.pick'), ui.offer('arquivo-das-sombras.md', allMarkdown(a.stories)))}>Exportar tudo .md</button>
+        <button onClick={() => (sfx('ui.tick', { on: !query.tr }), setQuery({ ...query, tr: !query.tr }))}>{query.tr ? '← voltar ao acervo' : `Lixeira (${st.trash})`}</button>
         <button onClick={onClose}>fechar</button>
       </div>
       <ul className="list" data-testid="list">
@@ -83,26 +84,26 @@ export function Library({ archive: a, ui, query, setQuery, onRead, onEdit, onClo
             <div className="ac">
               {query.tr ? (
                 <>
-                  <button onClick={() => save([{ ...s, del: false }])}>recuperar</button>
+                  <button onClick={() => (sfx('paper.pick'), save([{ ...s, del: false }]))}>recuperar</button>
                   <button onClick={() => purge(s)}>excluir de vez</button>
                 </>
               ) : (
                 <>
                   <button onClick={() => onRead(s.id)}>ler</button>
                   <button onClick={() => onEdit(s)}>editar</button>
-                  <button aria-label="subir" onClick={() => save(swapOrder(a.stories, s.id, -1))}>
+                  <button aria-label="subir" onClick={() => (sfx('ui.tick'), save(swapOrder(a.stories, s.id, -1)))}>
                     ↑
                   </button>
-                  <button aria-label="descer" onClick={() => save(swapOrder(a.stories, s.id, 1))}>
+                  <button aria-label="descer" onClick={() => (sfx('ui.tick'), save(swapOrder(a.stories, s.id, 1)))}>
                     ↓
                   </button>
-                  <button aria-label={s.fav ? 'tirar dos favoritos' : 'favoritar'} onClick={() => save([{ ...s, fav: !s.fav }])}>
+                  <button aria-label={s.fav ? 'tirar dos favoritos' : 'favoritar'} onClick={() => (sfx('ui.tick', { on: !s.fav }), save([{ ...s, fav: !s.fav }]))}>
                     {s.fav ? '★' : '☆'}
                   </button>
-                  <button onClick={() => save([duplicate(a.stories, s)])}>duplicar</button>
-                  <button onClick={() => ui.offer(slug(s) + '.txt', storyText(s, false))}>.txt</button>
-                  <button onClick={() => ui.offer(slug(s) + '.md', storyText(s, true))}>.md</button>
-                  <button onClick={() => save([{ ...s, del: true }])}>lixeira</button>
+                  <button onClick={() => (sfx('paper.pick'), save([duplicate(a.stories, s)]))}>duplicar</button>
+                  <button onClick={() => (sfx('paper.pick'), ui.offer(slug(s) + '.txt', storyText(s, false)))}>.txt</button>
+                  <button onClick={() => (sfx('paper.pick'), ui.offer(slug(s) + '.md', storyText(s, true)))}>.md</button>
+                  <button onClick={() => (sfx('paper.crumple'), save([{ ...s, del: true }]))}>lixeira</button>
                 </>
               )}
             </div>

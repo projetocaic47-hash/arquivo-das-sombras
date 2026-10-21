@@ -1,3 +1,5 @@
+import { useRef, useSyncExternalStore } from 'react'
+import { getSoundPrefs, onSoundPrefs, setSoundPrefs, sfx } from '../audio/sfx'
 import { dateBR, stats } from '../data/stories'
 import type { Archive } from '../state/useArchive'
 import { makeBackup } from './backupFlow'
@@ -7,6 +9,15 @@ import type { Ui } from './ui'
 export function Settings({ archive: a, ui, onClose }: { archive: Archive; ui: Ui; onClose: () => void }) {
   const c = a.config
   const st = stats(a.stories)
+  const som = useSyncExternalStore(onSoundPrefs, getSoundPrefs)
+  // ao arrastar o volume, um clique de amostra no máximo a cada 150 ms
+  const lastTick = useRef(0)
+  const preview = () => {
+    const now = performance.now()
+    if (now - lastTick.current < 150) return
+    lastTick.current = now
+    sfx('ui.tick')
+  }
   const set = (p: Parameters<Archive['updateConfig']>[0]) => a.updateConfig(p).catch((e: Error) => ui.toast('Não foi possível salvar: ' + e.message))
 
   return (
@@ -26,7 +37,33 @@ export function Settings({ archive: a, ui, onClose }: { archive: Archive; ui: Ui
         <input type="range" min={15} max={26} value={c.fs} onChange={(e) => set({ fs: +e.target.value })} />
       </label>
       <label className="check">
-        <input type="checkbox" checked={!!c.rm} onChange={(e) => set({ rm: e.target.checked })} /> Reduzir animações
+        <input type="checkbox" checked={!!c.rm} onChange={(e) => (sfx('ui.tick', { on: e.target.checked }), set({ rm: e.target.checked }))} /> Reduzir animações
+      </label>
+      <label className="check">
+        <input
+          type="checkbox"
+          checked={som.on}
+          onChange={(e) => {
+            setSoundPrefs({ on: e.target.checked })
+            if (e.target.checked) sfx('ui.tick')
+          }}
+        />{' '}
+        Efeitos sonoros
+      </label>
+      <label>
+        Volume dos efeitos <output>{Math.round(som.vol * 100)}%</output>
+        <input
+          type="range"
+          min={0}
+          max={100}
+          step={5}
+          value={Math.round(som.vol * 100)}
+          disabled={!som.on}
+          onChange={(e) => {
+            setSoundPrefs({ vol: +e.target.value / 100 })
+            preview()
+          }}
+        />
       </label>
 
       <div className="row">

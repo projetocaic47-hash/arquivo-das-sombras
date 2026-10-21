@@ -42,7 +42,8 @@ async function run(name, vp, opts = {}) {
     await p.addInitScript(() => {
       window.__sounds = 0
       const start = AudioBufferSourceNode.prototype.start
-      AudioBufferSourceNode.prototype.start = function (...a) { window.__sounds++; return start.apply(this, a) }
+      // só os arquivos de teste (0,1 s); o motor também toca buffers sintetizados e um silêncio de destrava
+      AudioBufferSourceNode.prototype.start = function (...a) { if (this.buffer && Math.abs(this.buffer.duration - 0.1) < 0.002) window.__sounds++; return start.apply(this, a) }
     })
   }
   await p.goto(`http://localhost:${port}/?debug&porta`)
