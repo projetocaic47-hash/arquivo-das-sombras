@@ -317,12 +317,27 @@ const doorHinges: Recipe = (v) => {
     body(v, c, [[700, 4, 1], [1500, 4, 0.5]], 0.35, 0, lp(ctx, 3200))
     return 1
   }
-  // destrava: um tranco seco na madeira
+  doorUnlatch(v)
+  doorCreak({ ...v, t: v.t + 1.0 })
+  return 4.5
+}
+
+/** A porta desprende: um tranco seco na madeira e um rangido curto (início da abertura). */
+const doorUnlatch: Recipe = (v) => {
+  const { ctx } = v
   const hit = shapedNoise(ctx, 0.2, (x) => decay(x, 12))
   body(v, hit, [[120, 8, 1], [240, 8, 0.6], [470, 6, 0.3]], 0.7, 0.05, lp(ctx, 1400))
   const short = stickSlip(ctx, 0.5, (x) => 120 + x * 140, (x) => swell(x, 0.4) * 0.7, 0.3, 0.0011)
   body(v, short, [[650, 5, 1], [1300, 5, 0.55], [2600, 4, 0.2]], 0.42, 0.15, lp(ctx, 3500))
-  // o rangido longo
+  return 0.7
+}
+
+/**
+ * O rangido longo enquanto a porta abre (a altura sobe e desce com a velocidade). Quando
+ * existe a gravação real (public/sons/porta-abrindo.mp3), ela toca no lugar deste.
+ */
+const doorCreak: Recipe = (v) => {
+  const { ctx } = v
   const long = stickSlip(
     ctx,
     3.4,
@@ -331,11 +346,11 @@ const doorHinges: Recipe = (v) => {
     0.22,
     0.001,
   )
-  body(v, long, [[620, 5, 1], [1250, 5, 0.6], [2400, 4, 0.22]], 0.42, 1.0, lp(ctx, 3600))
+  body(v, long, [[620, 5, 1], [1250, 5, 0.6], [2400, 4, 0.22]], 0.42, 0, lp(ctx, 3600))
   // a madeira geme por baixo
   const groan = stickSlip(ctx, 3.0, (x) => 32 + x * 14, (x) => swell(x, 0.4) * 0.7, 0.5, 0.003)
-  body(v, groan, [[110, 6, 1], [240, 6, 0.5]], 0.4, 1.1)
-  return 4.5
+  body(v, groan, [[110, 6, 1], [240, 6, 0.5]], 0.4, 0.1)
+  return 3.5
 }
 
 /** Caixa de fichas (Acervo): a tampa de madeira desliza e encosta. */
@@ -511,6 +526,8 @@ export const RECIPES = {
   'door.ignite': ignite,
   'door.poster': posterCreak,
   'door.hinges': doorHinges,
+  'door.unlatch': doorUnlatch,
+  'door.creak': doorCreak,
   'box.open': boxOpen,
   'box.close': boxClose,
   'candle.breath': candleBreath,

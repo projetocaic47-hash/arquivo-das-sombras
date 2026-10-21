@@ -1,4 +1,5 @@
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore, type ReactNode } from 'react'
+import { installAmbient } from './audio/ambient'
 import { installSound, setReducedSound, sfx, type SoundName } from './audio/sfx'
 import { book, type BookSound } from './book/controller'
 import type { BookPage } from './book/pages'
@@ -123,6 +124,8 @@ export function App() {
   // se a leitura em tela cheia falhar, o livro 3D continua servindo para ler
   const [noFlat, setNoFlat] = useState(false)
   // porta de entrada: todo acesso começa por ela (os testes automáticos com ?debug a pulam, salvo com &porta)
+  // a porta começou a abrir: o quarto precisa aparecer pelo vão
+  const [doorOpening, setDoorOpening] = useState(false)
   const [entered, setEntered] = useState(() => {
     const q = new URLSearchParams(location.search)
     return q.has('debug') && !q.has('porta')
@@ -159,6 +162,7 @@ export function App() {
 
   useEffect(() => {
     installSound()
+    installAmbient()
     book.sound = (s) => sfx(BOOK_SOUNDS[s])
     return () => {
       book.sound = () => {}
@@ -302,6 +306,10 @@ export function App() {
     }
   }
 
+  // com a porta fechada cobrindo a tela, o quarto 3D já carregado para de desenhar (ele
+  // desenhava 60 quadros por segundo atrás de uma imagem opaca, disputando a CPU e a GPU com
+  // a animação da porta); volta quando a porta começa a abrir
+  const behindDoor = !entered && ready && !doorOpening
   const visible = archive.stories.filter((s) => !s.del).length
   const loose = drafts(archive.stories)
   const daysSinceBackup = cfg.lb ? Math.floor((Date.now() - cfg.lb) / 864e5) : -1
@@ -327,7 +335,7 @@ export function App() {
       ) : (
         <SceneBoundary onFail={() => setNoScene(true)}>
           <Suspense fallback={null}>
-            <SceneRoot paused={readerCovers && !noFlat} onReady={() => setReady(true)} onLost={setLost} stories={archive.stories} config={cfg} onOpenSheet={openSheet} onLibrary={() => !screen && setScreen({ k: 'library' })} onSettings={() => !screen && setScreen({ k: 'settings' })} />
+            <SceneRoot paused={(readerCovers && !noFlat) || behindDoor} onReady={() => setReady(true)} onLost={setLost} stories={archive.stories} config={cfg} onOpenSheet={openSheet} onLibrary={() => !screen && setScreen({ k: 'library' })} onSettings={() => !screen && setScreen({ k: 'settings' })} />
           </Suspense>
         </SceneBoundary>
       )}
@@ -409,7 +417,7 @@ export function App() {
         </div>
       )}
       <p className="phase-tag">versão 1.0</p>
-      {!entered && <Entrance onEnter={() => setEntered(true)} />}
+      {!entered && <Entrance onEnter={() => setEntered(true)} onOpening={() => setDoorOpening(true)} />}
 
       {screen?.k === 'editor' && <Editor archive={archive} story={screen.story} onExit={editorExit} />}
       {screen && screen.k !== 'editor' && (

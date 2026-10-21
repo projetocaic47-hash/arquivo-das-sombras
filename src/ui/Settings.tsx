@@ -48,10 +48,13 @@ export function Settings({ archive: a, ui, onClose }: { archive: Archive; ui: Ui
             if (e.target.checked) sfx('ui.tick')
           }}
         />{' '}
-        Efeitos sonoros
+        Som (efeitos e chuva)
+      </label>
+      <label className="check">
+        <input type="checkbox" checked={som.amb} disabled={!som.on} onChange={(e) => (sfx('ui.tick', { on: e.target.checked }), setSoundPrefs({ amb: e.target.checked }))} /> Chuva e trovões
       </label>
       <label>
-        Volume dos efeitos <output>{Math.round(som.vol * 100)}%</output>
+        Volume geral <output>{Math.round(som.vol * 100)}%</output>
         <input
           type="range"
           min={0}
@@ -63,6 +66,18 @@ export function Settings({ archive: a, ui, onClose }: { archive: Archive; ui: Ui
             setSoundPrefs({ vol: +e.target.value / 100 })
             preview()
           }}
+        />
+      </label>
+      <label>
+        Volume da chuva <output>{Math.round(som.ambVol * 100)}%</output>
+        <input
+          type="range"
+          min={0}
+          max={100}
+          step={5}
+          value={Math.round(som.ambVol * 100)}
+          disabled={!som.on || !som.amb}
+          onChange={(e) => setSoundPrefs({ ambVol: +e.target.value / 100 })}
         />
       </label>
 

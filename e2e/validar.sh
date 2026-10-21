@@ -32,6 +32,7 @@ step nuvem node e2e/nuvem.mjs 4173
 step excluir-do-livro node e2e/excluir.mjs 4173
 step sons node e2e/sons.mjs 4173
 step porta-celular node e2e/porta-celular.mjs 4173
+step ambiente-chuva-porta node e2e/ambiente.mjs 4173
 echo
 printf "%s" "$summary"
 echo "$ok passaram, $fail falharam"

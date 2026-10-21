@@ -96,14 +96,14 @@ async function run(name, device, { landscape = false, rotateAt = -1 } = {}) {
   for (let i = 0; i < 4; i++) await p.touchscreen.tap(vp.width / 2, vp.height / 2)
   await p.waitForTimeout(1600)
   await p.screenshot({ path: `${out}/${name}-abrindo.png` })
-  const extra = (await sounds()).slice(s0).filter((n) => n !== 'door.hinges')
+  const extra = (await sounds()).slice(s0).filter((n) => n !== 'door.unlatch' && n !== 'door.creak')
   check(!extra.length, `${label}: toques durante a abertura não tocam nada a mais (${extra.join(', ') || 'nenhum'})`)
   await p.waitForSelector('.entrance', { state: 'detached', timeout: 20000 }).catch(() => {})
   check(!(await ent.count()), `${label}: a porta abriu e saiu da frente`)
   check(await p.locator('.topbar').isVisible(), `${label}: o app aparece em seguida`)
   const all = await sounds()
-  const want = ['door.knock', 'door.knock', 'door.knock', 'door.ignite', 'door.poster', 'door.hinges']
-  check(all.slice(0, 6).join() === want.join(), `${label}: sons da porta na ordem (${all.slice(0, 6).join(', ')})`)
+  const want = ['door.knock', 'door.knock', 'door.knock', 'door.ignite', 'door.poster', 'door.unlatch', 'door.creak']
+  check(all.slice(0, 7).join() === want.join(), `${label}: sons da porta na ordem (${all.slice(0, 7).join(', ')})`)
   await p.waitForTimeout(900)
   check((await p.evaluate(() => window.__sfx.live())) <= 1, `${label}: sons da porta encerrados com fade ao entrar`)
   await p.screenshot({ path: `${out}/${name}-dentro.png` })

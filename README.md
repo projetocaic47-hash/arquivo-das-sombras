@@ -59,7 +59,7 @@ baixo diz "salvo na nuvem", "salvando…", "alterações pendentes" ou "só nest
 
 **Porta de entrada** (`src/entrance/`): o app começa diante de uma porta em pixel art. Bater três vezes no centro, acender a vela da direita e tocar o cartaz da esquerda abre a porta. Os sons da porta são sintetizados; arquivos gravados em `public/sons/` (listados em `public/sons/lista.json`) substituem os sintetizados.
 
-**Efeitos sonoros** (`src/audio/`): papel, couro, madeira, cera e ferro, sintetizados na hora com Web Audio, sem arquivos nem bibliotecas e sem música de fundo. Em Ajustes: ligar/desligar e volume (guardados no navegador). Detalhes e lista dos sons em [docs/SONS.md](docs/SONS.md).
+**Efeitos sonoros** (`src/audio/`): papel, couro, madeira, cera e ferro, sintetizados na hora com Web Audio, sem bibliotecas, mais chuva e trovões contínuos de fundo e o rangido gravado da porta (`public/sons/`). Em Ajustes: som, chuva, volume geral e volume da chuva (guardados no navegador). Detalhes e lista dos sons em [docs/SONS.md](docs/SONS.md).
 
 O banco continua o mesmo do original (versão 1, mesmos campos): o original lê o que a
 nova app escreve, e o contrário (`node e2e/compat.mjs`).

@@ -29,6 +29,8 @@ const FOCAL = 1500
 const OPEN_SECONDS = 5.2
 const MAX_ANGLE = (84 * Math.PI) / 180
 
+/** a imagem cobre a tela, mas porta, vela e cartaz sempre ficam à vista */
+const fitScale = () => Math.min(Math.max(innerWidth / IW, innerHeight / IH), innerWidth / 1000, innerHeight / 880)
 const reduced = () => matchMedia('(prefers-reduced-motion: reduce)').matches
 const snap = (v: number) => Math.round(v / PX) * PX
 
@@ -79,12 +81,14 @@ interface Mote {
   max: number
 }
 
-export function Entrance({ onEnter }: { onEnter: () => void }) {
+/** `onOpening`: a porta começou a abrir (o quarto atrás dela volta a ser desenhado). */
+export function Entrance({ onEnter, onOpening }: { onEnter: () => void; onOpening?: () => void }) {
   const canvas = useRef<HTMLCanvasElement>(null)
   const box = useRef<HTMLDivElement>(null)
   const [state, setState] = useState<PuzzleState>(START)
   const stateRef = useRef(state)
-  const [scale, setScale] = useState(1)
+  // já nasce no tamanho certo (começar em 1 e corrigir depois fazia a porta pular na tela)
+  const [scale, setScale] = useState(fitScale)
   const scaleRef = useRef(1)
   scaleRef.current = scale
   const [leaving, setLeaving] = useState(false)
@@ -97,11 +101,7 @@ export function Entrance({ onEnter }: { onEnter: () => void }) {
 
   // tamanho: a imagem cobre a tela, mas porta, vela e cartaz sempre ficam à vista
   useEffect(() => {
-    const fit = () => {
-      const w = innerWidth
-      const h = innerHeight
-      setScale(Math.min(Math.max(w / IW, h / IH), w / 1000, h / 880))
-    }
+    const fit = () => setScale(fitScale())
     fit()
     addEventListener('resize', fit)
     return () => removeEventListener('resize', fit)
@@ -128,6 +128,7 @@ export function Entrance({ onEnter }: { onEnter: () => void }) {
   const finish = useRef(false)
   const startOpening = (now: number) => {
     fx.current.openAt = now
+    onOpening?.()
     play('hinges')
     // a câmera atravessa a porta perto do fim da abertura
     const total = reduced() ? 1.2 : OPEN_SECONDS

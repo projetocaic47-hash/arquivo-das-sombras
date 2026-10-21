@@ -1,9 +1,43 @@
 # Efeitos sonoros
 
 Todos os sons vêm do mesmo mundo: papel antigo, couro, madeira, cera, uma chama pequena e
-ferro enferrujado. São sintetizados na hora com Web Audio (`src/audio/synth.ts`): sem
-arquivos, sem bibliotecas e sem música de fundo. Cada toque sorteia pequenas variações, para
-não soar mecânico.
+ferro enferrujado. Os efeitos são sintetizados na hora com Web Audio (`src/audio/synth.ts`),
+sem bibliotecas; cada toque sorteia pequenas variações, para não soar mecânico. Três
+gravações enviadas pela usuária completam o ambiente (abaixo): chuva, trovões e a porta.
+
+## Gravações (`public/sons/`)
+
+| Arquivo | Original | Uso |
+| --- | --- | --- |
+| `chuva.mp3` | heavy-rain-outside-the-window (42 s, 48 kHz estéreo, 1,3 MB) | chuva de fundo, em loop |
+| `trovoes.mp3` | dry-thunder (2 min 37 s, 44,1 kHz estéreo, 4,8 MB) | trovões sobre a chuva, em loop |
+| `porta-abrindo.mp3` | old-door-sound-night-time (4,6 s, 48 kHz mono, 144 KB) | rangido da porta abrindo |
+
+## Chuva e trovões (`src/audio/ambient.ts`)
+
+- Uma camada só, sob o volume geral: chuva 0,25 e trovões 0,14 com "Volume da chuva" em
+  100% (padrão 80%). No volume padrão do app a mistura fica perto de −44 LUFS, com pico de
+  −18 dBFS: discreta, por baixo dos efeitos. Os arquivos não são amplificados.
+- Começa só no primeiro gesto (a primeira batida na porta), com fade de 3 s, e só então
+  baixa os arquivos: a abertura do app não espera pelo áudio.
+- Chuva: decodificada uma vez; os poucos ms de silêncio de codificação nas pontas do MP3 são
+  cortados e o fim é fundido no começo (crossfade de igual potência, 1,5 s), então o loop não
+  tem buraco nem estalo.
+- Trovões: tocados em streaming por um elemento de áudio (decodificar 2 min 37 s ocuparia
+  ~55 MB de memória). O arquivo começa e termina quase em silêncio, então a volta do loop não
+  se percebe; as pausas entre trovões são as da gravação.
+- Navegar, abrir janelas e mudar o volume não reiniciam nada. Desligar o som ou a chuva faz
+  um fade, para os arquivos e libera a memória. Aba escondida ou janela minimizada: fade,
+  pausa e o áudio dorme; ao voltar, retoma de onde estava.
+
+## Porta (`src/entrance/sound.ts`)
+
+A gravação é só a abertura (rangido contínuo que vai desacelerando em estalos espaçados, sem
+batida de fechar), e a porta do app só abre; por isso não há som de fechar. Ao tocar o
+cartaz, o tranco sintetizado de desprender toca com o primeiro movimento e o rangido gravado
+entra 1,0 s depois, agendado no relógio do áudio: é quando a folha começa a girar de verdade
+(`doorAngle`), e os estalos finais caem na desaceleração. Com "reduzir movimento" a abertura
+é curta e usa o rangido sintetizado curto. Toques repetidos não duplicam nada.
 
 ## Como funciona (`src/audio/sfx.ts`)
 
@@ -17,8 +51,9 @@ não soar mecânico.
   sempre um fade.
 - **Reduzir animações** (Ajustes ou sistema): o fechar do livro e as dobradiças da porta ficam
   mais curtos, acompanhando as animações.
-- **Ajustes → Efeitos sonoros** liga/desliga; **Volume dos efeitos** de 0 a 100%. Ficam no
-  `localStorage` (chave `arquivo-som`), fora do IndexedDB: o banco das histórias não muda.
+- **Ajustes:** "Som (efeitos e chuva)" liga/desliga tudo; "Chuva e trovões" só o fundo;
+  "Volume geral" e "Volume da chuva". Ficam no `localStorage` (chave `arquivo-som`), fora do
+  IndexedDB: o banco das histórias não muda.
 - Sem Web Audio, ou com erro no áudio, o app segue igual, em silêncio.
 
 ## Onde cada som toca
@@ -41,15 +76,15 @@ não soar mecânico.
 | Backup do acervo | `seal.stamp` (lacre de cera) |
 | Ordem, favorito, modo foco, opções | `ui.tick` |
 | Erro ("Não foi possível…", "Erro:") | `ui.error` (duas batidas surdas) |
-| Porta: bater, vela, cartaz, abertura | `door.knock`, `door.ignite`, `door.poster`, `door.hinges` |
+| Porta: bater, vela, cartaz, abertura | `door.knock`, `door.ignite`, `door.poster`, `door.unlatch` + `door.creak` (gravação) |
 
 Não há som ao digitar, no salvamento automático nem ao passar o mouse.
 
 ## Trocar por arquivos gravados (opcional)
 
 Os sons da porta aceitam arquivos em `public/sons/`, listados em `public/sons/lista.json`
-(por exemplo `["porta-batida-1.mp3", "vela-acender.mp3"]`): `porta-batida-1/2/3`,
-`vela-acender`, `madeira-rangendo`, `porta-dobradicas`. Arquivo ausente: vale o sintetizado.
+(hoje `["porta-abrindo.mp3"]`): `porta-batida-1/2/3`, `vela-acender`, `madeira-rangendo`,
+`porta-abrindo`. Arquivo ausente: vale o sintetizado.
 
 ## Testes
 
@@ -58,3 +93,6 @@ Os sons da porta aceitam arquivos em `public/sons/`, listados em `public/sons/li
   nada preso, desligar, volume, preferência depois de recarregar, IndexedDB intacto, áudio
   quebrado sem erro.
 - `node e2e/porta-celular.mjs`: porta em celulares e tablets emulados no Chromium, só com toque.
+- `node e2e/ambiente.mjs`: emenda do loop, nível da mixagem, carga só depois do gesto, uma
+  chuva só, navegação e volume sem reiniciar, silenciar e reativar, aba escondida (simulada),
+  rangido da porta sincronizado e sem duplicar, no computador e no celular emulado.

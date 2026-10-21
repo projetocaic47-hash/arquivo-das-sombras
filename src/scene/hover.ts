@@ -1,12 +1,8 @@
 import type { ThreeEvent } from '@react-three/fiber'
 import { useSyncExternalStore } from 'react'
-import * as THREE from 'three'
 
-/**
- * Filete dourado: uma casca um pouco maior que o objeto, desenhada só por dentro
- * (BackSide), de modo que aparece apenas como borda em volta dele.
- */
-export const outlineMaterial = new THREE.MeshBasicMaterial({ color: '#ffe6a8', side: THREE.BackSide })
+// Sem three.js aqui: o App importa clearHover, e este arquivo vai no pacote da primeira tela
+// (a porta). O material do contorno fica em outline.ts, que só a cena 3D carrega.
 
 // Objeto da mesa sob o mouse: só ele ganha o contorno dourado e a mãozinha.
 let current: string | null = null

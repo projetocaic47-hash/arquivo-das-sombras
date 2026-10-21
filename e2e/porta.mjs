@@ -36,7 +36,7 @@ async function run(name, vp, opts = {}) {
   p.on('pageerror', (e) => errors.push(e.message))
   p.on('console', (m) => m.type() === 'error' && errors.push(m.text()))
   if (opts.sound) {
-    await p.route('**/sons/lista.json', (r) => r.fulfill({ contentType: 'application/json', body: JSON.stringify(['porta-batida-1.wav', 'porta-batida-2.wav', 'porta-batida-3.wav', 'vela-acender.wav', 'madeira-rangendo.wav', 'porta-dobradicas.wav']) }))
+    await p.route('**/sons/lista.json', (r) => r.fulfill({ contentType: 'application/json', body: JSON.stringify(['porta-batida-1.wav', 'porta-batida-2.wav', 'porta-batida-3.wav', 'vela-acender.wav', 'madeira-rangendo.wav', 'porta-abrindo.wav']) }))
     await p.route('**/sons/*.wav', (r) => r.fulfill({ contentType: 'audio/wav', body: wav() }))
     // conta quantos sons começam a tocar
     await p.addInitScript(() => {

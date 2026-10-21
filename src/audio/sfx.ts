@@ -13,10 +13,18 @@ import { RECIPES, type SoundName, type Voice } from './synth'
 export type { SoundName }
 
 export interface SoundPrefs {
+  /** todo o som do app (efeitos e chuva) */
   on: boolean
-  /** 0 a 1 */
+  /** volume geral, 0 a 1 */
   vol: number
+  /** chuva e trovões de fundo */
+  amb: boolean
+  /** volume da chuva e dos trovões, 0 a 1 (relativo ao volume geral) */
+  ambVol: number
 }
+
+const DEFAULTS: SoundPrefs = { on: true, vol: 0.7, amb: true, ambVol: 0.8 }
+const clamp01 = (x: number) => Math.min(1, Math.max(0, x))
 
 const KEY = 'arquivo-som'
 const MAX_GAIN = 0.8
@@ -38,6 +46,8 @@ const TRIM: Partial<Record<SoundName, number>> = {
   'door.poster': 3.5,
   'box.open': 2.5,
   'door.hinges': 2.5,
+  'door.unlatch': 2.5,
+  'door.creak': 2.5,
   'panel.close': 2,
   'page.land': 2,
   'page.lift': 1.2,
@@ -53,16 +63,24 @@ const FILES: Partial<Record<SoundName, string[]>> = {
   'door.ignite': ['vela-acender'],
   'door.poster': ['madeira-rangendo'],
   'door.hinges': ['porta-dobradicas'],
+  // gravação real do rangido da porta abrindo (sem batida de fechar: é só a abertura)
+  'door.creak': ['porta-abrindo'],
 }
 
 function readPrefs(): SoundPrefs {
   try {
     const p = JSON.parse(localStorage.getItem(KEY) || 'null')
-    if (p && typeof p.on === 'boolean' && typeof p.vol === 'number') return { on: p.on, vol: Math.min(1, Math.max(0, p.vol)) }
+    if (p && typeof p === 'object')
+      return {
+        on: typeof p.on === 'boolean' ? p.on : DEFAULTS.on,
+        vol: typeof p.vol === 'number' ? clamp01(p.vol) : DEFAULTS.vol,
+        amb: typeof p.amb === 'boolean' ? p.amb : DEFAULTS.amb,
+        ambVol: typeof p.ambVol === 'number' ? clamp01(p.ambVol) : DEFAULTS.ambVol,
+      }
   } catch {
     // sem localStorage: usa o padrão
   }
-  return { on: true, vol: 0.7 }
+  return { ...DEFAULTS }
 }
 
 let prefs = readPrefs()
@@ -171,8 +189,24 @@ const level = () => (prefs.on ? Math.max(0.0001, prefs.vol * MAX_GAIN) : 0.0001)
  * Destrava o áudio no primeiro gesto (clique, toque ou tecla). No iOS o contexto só começa
  * de verdade depois de tocar algo dentro do gesto, então sai um buffer silencioso.
  */
+const unlockSubs = new Set<() => void>()
+/** Chamado dentro de cada gesto da pessoa (para quem precisa tocar algo "no clique", como a chuva). */
+export function onAudioUnlock(f: () => void) {
+  unlockSubs.add(f)
+  return () => void unlockSubs.delete(f)
+}
+/** O contexto e o volume geral, se o áudio já foi destravado. */
+export const getAudio = () => (ctx && master ? { ctx, master } : null)
+
 function unlock() {
   if (!setup() || !ctx) return
+  unlockSubs.forEach((f) => {
+    try {
+      f()
+    } catch {
+      // segue
+    }
+  })
   try {
     if (ctx.state !== 'running') void ctx.resume().catch(() => {})
     const b = ctx.createBuffer(1, 1, ctx.sampleRate)
@@ -217,7 +251,7 @@ export function setReducedSound(r: boolean) {
 export const getSoundPrefs = () => prefs
 
 export function setSoundPrefs(p: Partial<SoundPrefs>) {
-  prefs = { on: p.on ?? prefs.on, vol: Math.min(1, Math.max(0, p.vol ?? prefs.vol)) }
+  prefs = { on: p.on ?? prefs.on, vol: clamp01(p.vol ?? prefs.vol), amb: p.amb ?? prefs.amb, ambVol: clamp01(p.ambVol ?? prefs.ambVol) }
   try {
     localStorage.setItem(KEY, JSON.stringify(prefs))
   } catch {
@@ -284,11 +318,13 @@ export function sfx(name: SoundName, opts?: Record<string, unknown>) {
     gain.gain.value = TRIM[name] ?? 1
     gain.connect(dry!)
     gain.connect(room!)
-    const t = c.currentTime + 0.005
+    // `delay` (segundos): agenda no relógio do áudio, sem setTimeout (a porta usa para sincronizar)
+    const delay = opts && typeof opts.delay === 'number' ? Math.max(0, opts.delay) : 0
+    const t = c.currentTime + 0.005 + delay
     const entry: Live = { name, gain, end: t + 1 }
     live.push(entry)
     const finish = (dur: number) => {
-      entry.end = t + dur + 0.6
+      entry.end = c.currentTime + dur + 0.6
       setTimeout(() => {
         const i = live.indexOf(entry)
         if (i >= 0) live.splice(i, 1)
@@ -307,21 +343,22 @@ export function sfx(name: SoundName, opts?: Record<string, unknown>) {
       void (fileBuffers.get(base) ?? Promise.resolve(null)).then((buf) => {
         try {
           if (buf) {
-            // arquivo gravado: toca no nível em que foi mixado
+            // arquivo gravado: toca no nível em que foi mixado e com a acústica que já tem
             gain.gain.value = 1
+            gain.disconnect(room!)
             const s = c.createBufferSource()
             s.buffer = buf
             s.connect(gain)
-            s.start()
-            finish(buf.duration)
-          } else finish(RECIPES[name]({ ctx: c, out: gain, t: c.currentTime + 0.005, reduced: red }, opts))
+            s.start(Math.max(c.currentTime, t))
+            finish(delay + buf.duration)
+          } else finish(delay + RECIPES[name]({ ctx: c, out: gain, t: Math.max(c.currentTime + 0.005, t), reduced: red }, opts))
         } catch {
           finish(0)
         }
       })
       return
     }
-    finish(RECIPES[name]({ ctx: c, out: gain, t, reduced: red }, opts))
+    finish(delay + RECIPES[name]({ ctx: c, out: gain, t, reduced: red }, opts))
   } catch {
     // segue em silêncio
   }

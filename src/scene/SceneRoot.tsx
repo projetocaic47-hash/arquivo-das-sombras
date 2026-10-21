@@ -1,6 +1,6 @@
 import { Environment, Lightformer, PerformanceMonitor } from '@react-three/drei'
 import { Canvas, useFrame } from '@react-three/fiber'
-import { Suspense, useEffect, useState } from 'react'
+import { Suspense, useEffect, useRef, useState } from 'react'
 import * as THREE from 'three'
 import { atmosphere, updateAtmosphere } from './atmosphere'
 import { CameraRig } from './CameraRig'
@@ -112,7 +112,11 @@ export function SceneRoot({ onReady, onLost, stories, config, onOpenSheet, onLib
   )
 }
 
+/** Pronto depois de alguns quadros já desenhados (texturas enviadas e shaders compilados). */
 function Ready({ onReady }: { onReady?: () => void }) {
-  useEffect(() => onReady?.(), [onReady])
+  const frames = useRef(0)
+  useFrame(() => {
+    if (++frames.current === 3) onReady?.()
+  })
   return null
 }
