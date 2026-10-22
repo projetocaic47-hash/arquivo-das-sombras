@@ -77,6 +77,15 @@ gravado aqui.
   quem protege os dados é o RLS. Variáveis `VITE_SUPABASE_*` no painel do Vercel, se
   existirem, têm prioridade sobre o arquivo.
 - No link do claude.ai o app continua usando a nuvem do próprio link.
+- **Acervo aberto, sem login** (escolha do dono, 22/10/2026: o site é usado só por ele).
+  `.env.production` tem `VITE_ACERVO_ABERTO` (o id da conta do acervo): o site abre e salva
+  direto, sem e-mail nem senha, em tempo real entre os aparelhos. No banco,
+  `supabase/migrations/20261022210000_acervo_aberto.sql` deixa o visitante sem login
+  (papel `anon`) ler e gravar **só** as linhas dessa conta (função `acervo_aberto()`);
+  outras contas continuam isoladas e ninguém sem login apaga linhas. Consequência: quem
+  tiver o endereço do site pode ler e mudar o acervo. Para fechar: troque o corpo de
+  `acervo_aberto()` por `select null::uuid` e tire `VITE_ACERVO_ABERTO` do build (o app
+  volta ao login; com `VITE_ACERVO_EMAIL`, o login é por senha, uma vez por aparelho).
 
 Falta só, no painel do Supabase (não há ferramenta para isso fora do painel):
 

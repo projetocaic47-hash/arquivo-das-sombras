@@ -2,7 +2,7 @@ import { useRef, useState, useSyncExternalStore } from 'react'
 import { getSoundPrefs, onSoundPrefs, setSoundPrefs, sfx } from '../audio/sfx'
 import { dateBR, stats } from '../data/stories'
 import type { Archive } from '../state/useArchive'
-import { sendLoginLink, signOut, verifyLoginCode } from '../data/supabaseCloud'
+import { openOwner, ownerEmail, sendLoginLink, signInWithKey, signOut, verifyLoginCode } from '../data/supabaseCloud'
 import { makeBackup } from './backupFlow'
 import { cloudLabel } from './cloudLabel'
 import type { Ui } from './ui'
@@ -109,9 +109,11 @@ export function Settings({ archive: a, ui, onClose }: { archive: Archive; ui: Ui
   )
 }
 
-/** Conta da nuvem (Supabase): entrar com o e-mail, ver o estado, sair. */
+/** Conta da nuvem (Supabase): entrar (senha do acervo ou e-mail), ver o estado, sair. */
 function CloudAccount({ a, ui }: { a: Archive; ui: Ui }) {
   const acc = a.account
+  const fixed = ownerEmail()
+  const [key, setKey] = useState('')
   const [email, setEmail] = useState('')
   const [sent, setSent] = useState('')
   const [code, setCode] = useState('')
@@ -134,11 +136,17 @@ function CloudAccount({ a, ui }: { a: Archive; ui: Ui }) {
       <div className="cloud-account">
         <h4>Nuvem</h4>
         <p className="small">
-          Conectado como <b>{acc.email}</b> · <span data-testid="settings-cloud">{cloudLabel(a.cloud, acc)}</span>
+          {fixed || openOwner() ? 'Conectado ao seu acervo' : <>Conectado como <b>{acc.email}</b></>} · <span data-testid="settings-cloud">{cloudLabel(a.cloud, acc)}</span>
         </p>
-        <p className="small">Entre com este mesmo e-mail no celular ou em outro computador para ver e editar as mesmas histórias.</p>
+        <p className="small">
+          {openOwner()
+            ? 'O acervo abre sozinho em qualquer aparelho, sem senha: tudo o que você escreve vai para a nuvem e aparece nos outros aparelhos.'
+            : fixed
+            ? 'Entre com a mesma senha no celular ou em outro computador (uma vez em cada um) para ver e editar as mesmas histórias.'
+            : 'Entre com este mesmo e-mail no celular ou em outro computador para ver e editar as mesmas histórias.'}
+        </p>
         <div className="row">
-          <button
+          {!openOwner() && <button
             disabled={busy}
             onClick={() =>
               run(async () => {
@@ -148,8 +156,26 @@ function CloudAccount({ a, ui }: { a: Archive; ui: Ui }) {
             }
           >
             sair da conta
-          </button>
+          </button>}
         </div>
+      </div>
+    )
+  if (fixed)
+    return (
+      <div className="cloud-account">
+        <h4>Nuvem</h4>
+        <p className="small">Digite a senha do acervo para guardar as histórias na nuvem e vê-las em qualquer aparelho. É só uma vez em cada aparelho. As que já estão aqui sobem sozinhas, sem apagar nada.</p>
+        <form
+          className="row"
+          onSubmit={(e) => {
+            e.preventDefault()
+            if (key.trim()) void run(() => signInWithKey(key.trim()))
+          }}
+        >
+          <input type="password" required autoComplete="current-password" placeholder="senha do acervo" aria-label="Senha do acervo" value={key} onChange={(e) => setKey(e.target.value)} />
+          <button disabled={busy}>entrar</button>
+        </form>
+        {err && <p className="warn">Não foi possível: {err}</p>}
       </div>
     )
   return (

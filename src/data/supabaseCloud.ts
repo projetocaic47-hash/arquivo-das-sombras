@@ -12,9 +12,18 @@ import type { CloudConfig, CloudStory, Remote } from './sync'
 // No código vão só o endereço do projeto e a chave pública (anon), que sozinha não lê
 // nada: sem login, o banco recusa tudo. A chave secreta (service_role) nunca entra aqui.
 // O Supabase só é carregado (import dinâmico) quando há endereço configurado.
+//
+// Acervo de uma pessoa só, duas formas:
+// - VITE_ACERVO_EMAIL: uma conta fixa; cada aparelho entra uma vez com a senha do acervo e a
+//   sessão fica guardada.
+// - VITE_ACERVO_ABERTO (id da conta): sem login nenhum; o banco deixa qualquer visitante ler
+//   e gravar o acervo dessa conta (políticas "aberto" em supabase/migrations). Quem tem o
+//   endereço do site tem o acervo.
 
 const URL = import.meta.env.VITE_SUPABASE_URL as string | undefined
 const KEY = import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined
+const OWNER = import.meta.env.VITE_ACERVO_EMAIL as string | undefined
+const OPEN = import.meta.env.VITE_ACERVO_ABERTO as string | undefined
 
 /** Imitação usada pelos testes de navegador (só com ?debug). */
 const fake = () =>
@@ -25,7 +34,17 @@ const fake = () =>
 /** No link do claude.ai a nuvem é a do próprio link, mesmo com o Supabase no build. */
 const inClaude = () => typeof window !== 'undefined' && !!(window as unknown as { claude?: { use?: unknown } }).claude?.use
 
-export const supabaseAvailable = () => !!fake() || (!!(URL && KEY) && !inClaude())
+/** Testes (?debug) não falam com a nuvem de verdade, a não ser com ?debug&nuvem. */
+const testOnly = () => typeof window !== 'undefined' && /[?&]debug\b/.test(location.search) && !/[?&]nuvem\b/.test(location.search)
+
+export const supabaseAvailable = () => !!fake() || (!!(URL && KEY) && !inClaude() && !testOnly())
+
+type Fixed = { __acervoEmail?: string; __acervoAberto?: string }
+/** A conta fixa do acervo (null = cada pessoa entra com o próprio e-mail). */
+export const ownerEmail = (): string | null =>
+  (fake() ? (window as unknown as Fixed).__acervoEmail : OWNER) || null
+/** A conta do acervo aberto (sem login), ou null. */
+export const openOwner = (): string | null => (fake() ? (window as unknown as Fixed).__acervoAberto : OPEN) || null
 
 let clientP: Promise<SupabaseClient | null> | null = null
 export function getClient(): Promise<SupabaseClient | null> {
@@ -64,12 +83,16 @@ export function watchAccount(cb: (a: Account | null) => void): () => void {
     if (!c || dead) return
     const { data } = c.auth.onAuthStateChange((_e, session) => {
       const u = session?.user
-      emit(u ? { id: u.id, email: u.email || '' } : null)
+      const open = openOwner()
+      emit(u ? { id: u.id, email: u.email || '' } : open ? { id: open, email: 'seu acervo' } : null)
     })
     stop = () => data.subscription.unsubscribe()
     const { data: s } = await c.auth.getSession()
     const u = s.session?.user
-    if (!dead) emit(u ? { id: u.id, email: u.email || '' } : null)
+    if (dead) return
+    // acervo aberto: sem sessão, o app usa direto a conta do acervo
+    const open = openOwner()
+    emit(u ? { id: u.id, email: u.email || '' } : open ? { id: open, email: 'seu acervo' } : null)
   })
   return () => {
     dead = true
@@ -91,6 +114,15 @@ export async function verifyLoginCode(email: string, token: string) {
   if (!c) throw new Error('a nuvem não está configurada neste endereço')
   const { error } = await c.auth.verifyOtp({ email, token, type: 'email' })
   if (error) throw new Error(error.message)
+}
+
+/** Entra na conta fixa do acervo com a senha (uma vez por aparelho; a sessão fica guardada). */
+export async function signInWithKey(key: string) {
+  const c = await getClient()
+  const email = ownerEmail()
+  if (!c || !email) throw new Error('a nuvem não está configurada neste endereço')
+  const { error } = await c.auth.signInWithPassword({ email, password: key })
+  if (error) throw new Error(/invalid login credentials/i.test(error.message) ? 'senha errada' : error.message)
 }
 
 export async function signOut() {

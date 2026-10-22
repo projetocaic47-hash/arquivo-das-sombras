@@ -32,12 +32,14 @@ const offline = new Set()
 let seq = 0
 let rpcCalls = 0
 const CODE = '123456'
+const SENHA = 'senha-do-acervo'
 const userId = (email) => 'u-' + email.replace(/[^a-z0-9]/gi, '-')
 const pushChange = (table, owner, row) => changes.push({ seq: ++seq, table, owner, row: structuredClone(row) })
 
 function serve(device, op, a) {
   if (offline.has(device)) return { error: { message: 'Failed to fetch' } }
   if (op === 'otp') return { error: null }
+  if (op === 'password') return a.password === SENHA ? { session: { user: { id: userId(a.email), email: a.email } } } : { error: { message: 'Invalid login credentials' } }
   if (op === 'verify') return a.token === CODE ? { session: { user: { id: userId(a.email), email: a.email } } } : { error: { message: 'Token has expired or is invalid' } }
   const owner = a.owner
   if (!owner) return { error: { message: 'permission denied', code: '42501' } } // sem login: RLS recusa
@@ -81,7 +83,8 @@ function shim() {
   } catch {}
   const listeners = new Set()
   const call = async (op, a = {}) => {
-    const r = await window.__sb(op, { ...a, owner: session?.user?.id || null })
+    // sem sessão, o banco do acervo aberto trata o visitante como a conta do acervo
+    const r = await window.__sb(op, { ...a, owner: session?.user?.id || window.__acervoAberto || null })
     await new Promise((res) => setTimeout(res, 30)) // um pouco de rede
     return r
   }
@@ -112,7 +115,7 @@ function shim() {
   const channels = new Set()
   let since = 0
   setInterval(async () => {
-    if (!session || !channels.size) return
+    if ((!session && !window.__acervoAberto) || !channels.size) return
     const r = await call('changes', { since })
     if (r.error || !r.data) return
     for (const c of r.data) {
@@ -153,13 +156,20 @@ function shim() {
         setSession(r.session)
         return { error: null }
       },
+      signInWithPassword: async ({ email, password }) => {
+        const r = await call('password', { email, password })
+        if (r.error) return { error: r.error }
+        setSession(r.session)
+        return { error: null }
+      },
       signOut: async () => (setSession(null), { error: null }),
     },
   }
 }
 
-async function device(name, vp, { seed = [], email = null, mobile = false } = {}) {
+async function device(name, vp, { seed = [], email = null, mobile = false, owner = null, aberto = null } = {}) {
   const ctx = await b.newContext({ viewport: vp, ...(mobile ? { isMobile: true, hasTouch: true, deviceScaleFactor: 2 } : {}) })
+  if (owner || aberto) await ctx.addInitScript(([o, k]) => Object.assign(window, { __acervoEmail: o, __acervoAberto: k }), [owner, aberto])
   await ctx.exposeFunction('__sb', (op, a) => serve(name, op, a))
   await ctx.addInitScript(shim)
   const p = await ctx.newPage()
@@ -347,6 +357,41 @@ await waitBadge(outro, /salvo na nuvem/)
 await new Promise((r) => setTimeout(r, 1500))
 check((await local(outro)).length === 0, 'F: outra conta entra e não recebe nenhuma história da primeira')
 check(rowsOf('outra-pessoa@exemplo.com').length === 0 && rowsOf(EMAIL).length >= 5, 'F: a nuvem da primeira conta continua intacta')
+
+// acervo de uma pessoa só: senha do acervo, sem e-mail
+const sen = await device('senha', { width: 390, height: 844 }, { owner: EMAIL, mobile: true })
+await waitBadge(sen, /entrar para salvar/)
+await sen.p.click('.cloud')
+check(!(await sen.p.$('.cloud-account input[type=email]')), 'senha do acervo: sem campo de e-mail')
+await sen.p.fill('.cloud-account input[aria-label="Senha do acervo"]', 'senha-errada')
+await sen.p.click('.cloud-account button:has-text("entrar")')
+await sen.p.waitForSelector('.cloud-account :text("senha errada")')
+check(true, 'senha do acervo: senha errada é recusada')
+await sen.p.fill('.cloud-account input[aria-label="Senha do acervo"]', SENHA)
+await sen.p.click('.cloud-account button:has-text("entrar")')
+await sen.p.waitForSelector('.cloud-account :text("Conectado ao seu acervo")')
+await sen.p.click('.settings button:has-text("fechar")')
+await waitLocal(sen, (l) => l.some((s) => s.x === 'versão do computador'), 'senha do acervo: o aparelho recebe o acervo da conta')
+await sen.p.reload()
+await waitBadge(sen, /salvo na nuvem/)
+check(true, 'senha do acervo: depois de recarregar continua conectado, sem digitar de novo')
+
+// acervo aberto: sem login nenhum, dois aparelhos com o mesmo acervo
+const ab1 = await device('aberto-pc', { width: 1000, height: 700 }, { aberto: userId(EMAIL), seed: [{ ...old2, id: 'so-no-pc', t: 'Só no computador aberto', x: 'texto antigo do pc aberto', o: 9 }] })
+await waitBadge(ab1, /salvo na nuvem/)
+check(!/entrar/.test(await badge(ab1)), 'acervo aberto: abre sem pedir login: ' + (await badge(ab1)))
+await waitLocal(ab1, (l) => l.some((s) => s.x === 'versão do computador'), 'acervo aberto: o computador recebe o acervo sem login')
+check(rowsOf(EMAIL).some((r) => r.id === 'so-no-pc'), 'acervo aberto: história antiga do aparelho subiu para a nuvem')
+const ab2 = await device('aberto-cel', { width: 390, height: 844 }, { aberto: userId(EMAIL), mobile: true })
+await waitBadge(ab2, /salvo na nuvem/)
+await waitLocal(ab2, (l) => l.some((s) => s.id === 'so-no-pc'), 'acervo aberto: o celular recebe a história do computador')
+await write(ab2, 'Escrita no celular aberto', 'Do celular sem login.')
+await waitBadge(ab2, /salvo na nuvem/)
+await waitLocal(ab1, (l) => l.some((s) => s.t === 'Escrita no celular aberto'), 'acervo aberto: o computador recebe a do celular')
+check(true, 'acervo aberto: dois aparelhos sem login, mesmo acervo nos dois sentidos')
+await ab1.p.click('.topbar button:has-text("Ajustes")')
+check(!(await ab1.p.$('.cloud-account input')) && !(await ab1.p.$('.cloud-account button:has-text("sair")')), 'acervo aberto: Ajustes sem e-mail, senha nem "sair"')
+await ab1.p.click('.settings button:has-text("fechar")')
 
 // sair da conta: o app volta a "entrar para salvar", o aparelho mantém a cópia
 await cel.p.click('.topbar button:has-text("Ajustes")')

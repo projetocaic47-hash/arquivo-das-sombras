@@ -183,12 +183,12 @@ const tab = await device('tablet', { width: 820, height: 1180 })
 await waitLocal(tab, (l) => ['A história que já existia', 'Escrita no celular', 'Escrita sem internet'].every((t) => l.some((s) => s.t === t)), 'terceiro aparelho recuperou as três histórias')
 console.log('OK    terceiro aparelho recuperou as três histórias')
 
-// 6. fora do claude.ai: com o Supabase no build, convida a entrar; sem ele, só neste aparelho
+// 6. fora do claude.ai, em teste (?debug, sem a nuvem de verdade): só neste aparelho
 const plain = await b.newPage({ viewport: { width: 1000, height: 700 } })
 await plain.goto(`http://localhost:${port}/?debug`)
 await plain.waitForSelector('.cloud', { timeout: 120000 })
 const fora = await plain.textContent('.cloud')
-check(/só neste aparelho|entrar para salvar na nuvem/.test(fora), 'fora do claude.ai: "' + fora + '"')
+check(/só neste aparelho/.test(fora), 'fora do claude.ai: "' + fora + '"')
 
 check(!errors.length, 'sem erros no console' + (errors.length ? ': ' + errors.join(' | ') : ''))
 await b.close()

@@ -16,3 +16,13 @@ trap '"${PSQL[@]}" -d postgres -c "drop database if exists $DB" >/dev/null' EXIT
 out=$("${PSQL[@]}" -d "$DB" -At -f supabase/tests/rls.sql | grep -E '^(OK|FALHA|tudo|HÁ)')
 echo "$out"
 grep -q '^tudo certo$' <<<"$out"
+# acervo aberto (sem login), num banco novo com as duas migrações
+DB2="${DB}_aberto"
+"${PSQL[@]}" -d postgres -c "create database $DB2" >/dev/null
+trap '"${PSQL[@]}" -d postgres -c "drop database if exists $DB" >/dev/null; "${PSQL[@]}" -d postgres -c "drop database if exists $DB2" >/dev/null' EXIT
+"${PSQL[@]}" -d "$DB2" -f supabase/tests/stub-supabase.sql >/dev/null
+for f in supabase/migrations/*.sql; do "${PSQL[@]}" -d "$DB2" -f "$f" >/dev/null; done
+for f in supabase/migrations/*.sql; do "${PSQL[@]}" -d "$DB2" -f "$f" >/dev/null; done
+out=$("${PSQL[@]}" -d "$DB2" -At -f supabase/tests/aberto.sql | grep -E '^(OK|FALHA|tudo|HÁ)')
+echo "$out"
+grep -q '^tudo certo$' <<<"$out"

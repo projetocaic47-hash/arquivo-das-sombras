@@ -18,6 +18,7 @@ import { clearHover } from './scene/hover'
 import { hasWebGL, SceneBoundary } from './ui/SceneBoundary'
 import { Settings } from './ui/Settings'
 import { cloudLabel } from './ui/cloudLabel'
+import { ownerEmail } from './data/supabaseCloud'
 import type { Ui } from './ui/ui'
 
 // A cena 3D (three.js) é o maior pedaço do app; carregá-la à parte deixa a interface aparecer primeiro.
@@ -66,7 +67,7 @@ function CloudBadge({ s, acc, onLogin }: { s: Archive['cloud']; acc: Archive['ac
   const login = s.state === 'off' && acc.kind === 'supabase' && !acc.email
   const help = {
     off: login
-      ? 'As histórias estão guardadas só neste navegador. Entre com o seu e-mail (em Ajustes) para guardá-las na nuvem e vê-las em qualquer aparelho.'
+      ? `As histórias estão guardadas só neste navegador. Entre com ${ownerEmail() ? 'a senha do acervo' : 'o seu e-mail'} (em Ajustes) para guardá-las na nuvem e vê-las em qualquer aparelho.`
       : 'As histórias ficam guardadas neste navegador. A nuvem não está configurada neste endereço.',
     syncing: 'Enviando as últimas mudanças.',
     saved: 'Tudo guardado neste aparelho e na nuvem. Entre com a mesma conta em outro aparelho para continuar de lá.',
