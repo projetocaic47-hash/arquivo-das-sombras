@@ -4,10 +4,16 @@ import type { Story, StoryStatus } from '../data/types'
 import type { Archive } from '../state/useArchive'
 import { useModal } from './focus'
 import { sfx } from '../audio/sfx'
+import { sameContent } from '../data/sync'
+import { cloudLabel } from './cloudLabel'
 
 // Editor de uma história, com as regras do original: grava sozinho 0,7 s depois de
 // cada mudança (e ao fechar, e com Ctrl+S), guarda versões anteriores a cada 10 minutos
 // de edição (até 15), modo foco, e os botões que levam a folha à mesa ou ao livro.
+// A linha de estado só diz "salvo na nuvem" depois que a nuvem confirma. Se a mesma
+// história mudar em outro aparelho com o editor aberto, nada é sobrescrito: sem edição
+// pendente aqui, o editor mostra a versão nova; com edição pendente, a daqui vira uma
+// cópia "(cópia em conflito)" e a de lá fica na história.
 
 export type EditorExit = { to: 'stay' } | { to: 'book'; id: string } | { to: 'desk' }
 
@@ -83,6 +89,50 @@ export function Editor({ archive, story, onExit }: { archive: Archive; story: St
     timer.current = window.setTimeout(() => flush().catch(() => {}), 700)
   }
 
+  // outra versão desta história chegou da nuvem (outro aparelho) com o editor aberto
+  useEffect(() => {
+    const cur = saved.current
+    if (!cur) return
+    const there = archive.stories.find((s) => s.id === cur.id)
+    if (!there || there === cur || (there.u === cur.u && sameContent(there, cur))) return
+    if (sameContent(there, cur)) {
+      saved.current = there
+      return
+    }
+    const pending = !sameAs(cur, fRef.current) || !!timer.current
+    if (!pending) {
+      saved.current = there
+      fRef.current = fieldsOf(there)
+      setF(fRef.current)
+      setStatus('atualizada com a versão de outro aparelho')
+      return
+    }
+    // edição daqui ainda não gravada: vira uma cópia, e a história fica com a versão de lá
+    clearTimeout(timer.current)
+    timer.current = 0
+    const now = Date.now()
+    const mine = fRef.current
+    const copy: Story = {
+      ...blankStory(now),
+      t: `${mine.t || 'Sem título'} (cópia em conflito)`,
+      sub: mine.sub,
+      x: mine.x,
+      tags: parseTags(mine.tags),
+      st: mine.st,
+      note: mine.note,
+      o: nextOrder(archive.stories),
+    }
+    saved.current = copy
+    fRef.current = fieldsOf(copy)
+    setF(fRef.current)
+    setStatus('salvando…')
+    archive.saveStories([copy]).then(
+      () => setStatus('guardado'),
+      (e: Error) => setStatus('ERRO ao salvar: ' + e.message),
+    )
+    setError('Esta história foi alterada em outro aparelho enquanto você escrevia. Nada foi perdido: a versão de lá ficou na história, e o seu texto continua aqui como uma cópia "(cópia em conflito)".')
+  }, [archive])
+
   // Ctrl+S grava na hora; ao sair da página, grava o que faltar
   useEffect(() => {
     const key = (e: globalThis.KeyboardEvent) => {
@@ -145,6 +195,7 @@ export function Editor({ archive, story, onExit }: { archive: Archive; story: St
         <textarea className="e-note" placeholder="Nota pessoal (não aparece no livro)" aria-label="Nota pessoal" value={f.note} onChange={(e) => change({ note: e.target.value })} />
         <p className="e-count">
           {words(f.x)} palavras · {f.x.length} caracteres · editada {dateBR(edited)} · <span data-testid="save-status">{status}</span>
+          {archive.cloud.state !== 'off' && status.startsWith('guardado') && <span data-testid="cloud-status"> · {cloudLabel(archive.cloud, archive.account)}</span>}
         </p>
         <div className="row e-actions">
           <button onClick={() => (sfx('ui.tick', { on: !focus }), setFocus(!focus))} aria-pressed={focus}>

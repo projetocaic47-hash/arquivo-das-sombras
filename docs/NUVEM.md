@@ -1,79 +1,157 @@
 # Nuvem: as histórias em qualquer aparelho
 
-## Como funciona para quem usa
+O app tem duas nuvens possíveis, escolhidas sozinhas pelo endereço em que ele é aberto:
 
-- Abra o app pelo **link do claude.ai**, entrando com a **sua conta**. Nesse link, tudo o
-  que é escrito, editado, excluído ou ajustado é guardado também na nuvem, sozinho.
-- Em outro aparelho (celular, tablet, outro computador), abra o mesmo link com a mesma
-  conta: as histórias aparecem lá, e as mudanças passam de um para o outro com o app aberto.
-- No canto de baixo, à esquerda, um aviso discreto diz o estado:
-  - **salvo na nuvem**: tudo guardado neste aparelho e na nuvem;
-  - **salvando na nuvem…**: enviando as últimas mudanças;
-  - **alterações pendentes**: sem conexão; as mudanças estão guardadas neste aparelho e
-    sobem sozinhas quando a conexão voltar (mesmo que o navegador seja fechado antes);
-  - **só neste aparelho**: o app foi aberto fora do link do claude.ai, ou sem conta, e
-    funciona como antes, guardando só no navegador.
-- Mudança na mesma história em dois aparelhos ao mesmo tempo (por exemplo, um deles sem
-  internet): **nada é sobrescrito**. A versão que chegou primeiro na nuvem fica na
-  história, e a outra vira uma cópia chamada "(cópia em conflito)" no Acervo. O aviso do
-  canto mostra quantas cópias assim foram criadas.
-- Ajustes (nome, frase da capa, letra, marcadores, onde parou a leitura) seguem a mudança
-  mais recente.
-- Uma história muito grande (mais de cerca de 200 mil caracteres, contando as versões
-  anteriores) sobe sem as versões mais antigas; se nem assim couber, fica só no aparelho
-  e o aviso do canto diz isso. O backup continua sendo o jeito de guardá-la fora dele.
+| Onde o app abre | Nuvem | Conta |
+| --- | --- | --- |
+| Site publicado (Vercel, GitHub Pages) com o Supabase configurado | **Supabase** (PostgreSQL) | e-mail (link ou código enviado por e-mail) |
+| Link do claude.ai | banco do próprio link (capacidade `db`) | conta do claude.ai |
+| Sem nenhuma das duas | nenhuma: só neste aparelho | — |
 
-## Onde fica guardado
+As duas usam o mesmo motor de sincronização (`src/data/sync.ts`). São nuvens separadas:
+o acervo do site publicado não é o mesmo do link do claude.ai.
 
-No banco de dados do próprio link publicado no claude.ai (capacidade `db` da página),
-numa área **privada de cada conta**: `data/users/<id da conta>/`. Ninguém mais lê essa
-área, nem quem publicou o link. Não há senha, chave ou credencial no código: quem
-autentica é o login do claude.ai, e o acesso é dado pelo próprio claude.ai à página.
+## Como funciona para quem usa (site publicado)
 
-```
-data/users/<id>/ajustes                    os ajustes
-data/users/<id>/arquivo/historias/<chave>  uma história por documento (com as versões)
-data/users/<id>/arquivo/travas/<chave>     trava curta ao enviar uma história
-```
+1. Abra o site. No canto, o aviso **"entrar para salvar na nuvem"** (ou Ajustes → Nuvem).
+2. Digite o seu e-mail e toque em **enviar link de acesso**. Chega um e-mail: toque no
+   link (neste aparelho) ou digite o código que veio nele.
+3. Pronto: as histórias que já estavam neste aparelho sobem para a nuvem (sem apagar nada)
+   e as que estão na nuvem aparecem aqui.
+4. No celular ou em outro computador, entre com **o mesmo e-mail**: aparece o mesmo acervo.
+   A sessão fica guardada no navegador; não é preciso entrar de novo a cada visita.
 
-Para isso a página é publicada com `capabilities: {downloads: true, db: {}, user: {}}`.
+O aviso do canto (e a linha de baixo do editor) diz o estado, sempre depois da resposta da
+nuvem:
 
-## O que continua igual
+- **salvo na nuvem**: a nuvem confirmou;
+- **salvando na nuvem…**: enviando;
+- **alterações pendentes**: esperando a nuvem; as mudanças estão guardadas neste aparelho
+  e sobem sozinhas quando ela responder, mesmo que o navegador seja fechado antes;
+- **erro ao salvar na nuvem · tentando de novo**: a última tentativa falhou (sem internet,
+  sessão expirada, serviço fora); novas tentativas em 5 s, 15 s, 30 s e depois a cada
+  minuto, e na hora em que a conexão volta;
+- **entrar para salvar na nuvem**: ninguém conectado neste navegador; guarda só aqui;
+- **só neste aparelho**: a nuvem não está configurada neste endereço.
 
-O IndexedDB do navegador continua sendo a cópia local e o lugar onde o app grava primeiro
-(o app abre e salva sem internet). O banco local não mudou de formato: o HTML original
-ainda lê e escreve nele. A nuvem é uma camada por cima:
+**Mesma história mudada em dois aparelhos ao mesmo tempo:** nada é sobrescrito. A versão
+que chegou primeiro na nuvem fica na história, e a outra vira uma cópia "(cópia em
+conflito)" no Acervo. Com o editor aberto: se o outro aparelho mudar a história e aqui não
+houver nada por gravar, o editor mostra a versão nova; se houver, o texto daqui vira a
+cópia e o editor avisa.
 
-1. a gravação local acontece primeiro, como antes;
-2. a história fica marcada como pendente (`localStorage`, chave `arquivo-nuvem:<id>`);
-3. o envio confere a revisão da nuvem; se outro aparelho mudou a mesma história nesse
-   meio-tempo, cria a cópia em conflito em vez de sobrescrever;
-4. o que chega da nuvem é gravado no IndexedDB antes de aparecer na tela.
+## Onde fica guardado (Supabase)
 
-**Primeira vez com um acervo que já existia:** tudo o que está no aparelho sobe para a
-nuvem. Se a mesma história existir diferente nos dois lados, as duas ficam (uma como
-cópia). Nada é apagado na migração. Mesmo assim, faça um backup (Acervo → backup) antes
-de abrir o link pela primeira vez em cada aparelho com histórias antigas.
+Banco PostgreSQL do projeto Supabase, com duas tabelas (`supabase/migrations/`):
 
-**Excluir de vez** (na lixeira) exclui nos outros aparelhos também. "Restaurar backup →
-substituir tudo" vale como excluir de vez as histórias que não estão no backup.
+- `historias`: uma linha por história e por conta: `story` (a história como o app grava
+  no IndexedDB, mesmos campos e mesmo id), `v` (versões anteriores), `rev` (revisão),
+  `dev` (aparelho), `at`, `gone` (excluída de vez, para sumir dos outros aparelhos);
+- `ajustes`: uma linha por conta (nome, frase da capa, letra, marcadores, posição).
+
+**Segurança:** Row Level Security nas duas tabelas: cada conta só lê e grava as próprias
+linhas; sem login, nada. A gravação de história passa pela função `put_historia`, que
+confere a revisão no próprio banco: uma resposta atrasada ou outro aparelho nunca grava por
+cima de uma versão mais nova. No app vão só o endereço do projeto e a chave pública
+(`anon`), que sozinha não lê nada. A chave secreta (`service_role`) não é usada em lugar
+nenhum do app.
+
+**Sincronização:** ao entrar, o app lê tudo da nuvem; depois recebe as mudanças em tempo
+real (Supabase Realtime) e, de reserva, relê ao voltar para a página, ao reconectar e a
+cada minuto. O IndexedDB continua como cópia local (para abrir e escrever sem internet):
+grava primeiro aqui e envia em seguida; a nuvem é a referência, e o que chega dela é
+gravado aqui.
+
+## Configuração (uma vez)
+
+### Situação atual (22/10/2026)
+
+- Projeto Supabase **arquivo-das-sombras** (`whnahjpxpupbqiinjbjt`, região São Paulo,
+  plano gratuito), criado pelo conector do Supabase. A migração de
+  `supabase/migrations/` já foi aplicada: tabelas, RLS, `put_historia` e tempo real. O
+  RLS foi testado no próprio banco (outra conta e sem login não leem nem gravam; revisão
+  conferida) e os avisos de segurança do Supabase estão vazios.
+- O endereço do projeto e a chave pública (`anon`) estão em `.env.production`, que vai
+  para o Git: o Vite os coloca no build de produção (Vercel e GitHub Pages) sem precisar de
+  variáveis no painel. São valores públicos (vão no JavaScript do site de qualquer forma);
+  quem protege os dados é o RLS. Variáveis `VITE_SUPABASE_*` no painel do Vercel, se
+  existirem, têm prioridade sobre o arquivo.
+- No link do claude.ai o app continua usando a nuvem do próprio link.
+
+Falta só, no painel do Supabase (não há ferramenta para isso fora do painel):
+
+1. **Authentication → URL Configuration:**
+   - Site URL: `https://arquivo-das-sombras.vercel.app`
+   - Redirect URLs: `https://arquivo-das-sombras.vercel.app/**` e
+     `https://projetocaic47-hash.github.io/arquivo-das-sombras/**`
+2. **Authentication → Emails → Magic Link** (para entrar com código no celular): incluir
+   `{{ .Token }}` no texto do e-mail.
+3. Depois de criar a sua conta: **Authentication → Sign In / Providers** → desligar
+   "Allow new users to sign up".
+
+### Para recriar em outro projeto Supabase
+
+1. Crie um projeto em supabase.com (plano gratuito serve).
+2. **SQL Editor** → cole e rode `supabase/migrations/20261022000000_arquivo_nuvem.sql`
+   (pode rodar de novo sem problema).
+3. Faça os três passos acima.
+4. **Project Settings → API:** troque a *Project URL* e a chave *anon public* em
+   `.env.production` (ou cadastre `VITE_SUPABASE_URL` e `VITE_SUPABASE_ANON_KEY` no Vercel,
+   em Production e Preview, e faça **Redeploy**). Modelo em `.env.example`.
+
+## Migração dos textos antigos
+
+Automática e segura, em cada aparelho que já tem histórias:
+
+1. Antes, por garantia: **Acervo → Backup do acervo** (arquivo .json).
+2. Abra o site publicado e entre com o e-mail.
+3. Todas as histórias deste navegador sobem com o mesmo id, título, texto, etiquetas,
+   ordem, datas e versões. O aviso só passa a "salvo na nuvem" depois que a nuvem
+   confirmou cada uma.
+4. Repita nos outros aparelhos com histórias antigas. A mesma história igual nos dois não
+   duplica; diferente, as duas ficam (uma como cópia). Recarregar ou interromper e
+   recomeçar não cria duplicatas (o id é a chave, e a revisão é conferida).
+5. A cópia local (IndexedDB) nunca é apagada pela migração.
+
+Se falhar, o aviso diz "erro ao salvar na nuvem" e as histórias continuam no aparelho,
+pendentes, até a próxima tentativa.
+
+Atenção: num navegador compartilhado, entrar com outra conta envia para ela as histórias
+que estão nesse navegador.
 
 ## Código
 
 - `src/data/sync.ts`: motor de sincronização (fila, pendências, revisões, conflitos,
-  exclusões, ajustes, novas tentativas em 5 s, 15 s, 30 s e depois a cada minuto, e o
-  evento `online` do navegador). Testado em `tests/sync.test.ts` com uma nuvem em memória.
-- `src/data/cloud.ts`: adaptador para o banco do claude.ai.
-- `src/state/useArchive.ts`: liga o motor ao acervo.
-- `e2e/nuvem.mjs`: três navegadores separados (computador, celular, tablet) com um banco
-  imitado, incluindo ficar sem internet e recarregar.
+  exclusões, ajustes, novas tentativas, estado com erro). Testado em `tests/sync.test.ts`.
+- `src/data/supabaseCloud.ts`: Supabase (login, leitura, gravação com revisão, tempo
+  real). Carregado só quando configurado.
+- `src/data/cloud.ts`: banco do link do claude.ai.
+- `src/state/useArchive.ts`: escolhe a nuvem, acompanha a conta e liga o motor ao acervo.
+- `src/ui/Settings.tsx` (Nuvem: entrar, código, sair), `src/ui/Editor.tsx` (estado na
+  linha do editor e mudança vinda de outro aparelho), `src/ui/cloudLabel.ts`, aviso do
+  canto em `src/App.tsx`.
+- `supabase/migrations/`: tabelas, RLS, função `put_historia`, tempo real.
+
+## Testes
+
+- `bash scripts/test-nuvem-sql.sh`: a migração num PostgreSQL real; RLS (outra conta e
+  sem login não leem nem gravam), revisão conferida, acentos preservados.
+- `node e2e/nuvem-real.mjs`: o app compilado com o cliente oficial do Supabase, falando
+  com um "mini-Supabase" local (`e2e/mini-supabase.mjs`: PostgreSQL de verdade, mesma
+  migração, RLS ativo). Dois navegadores independentes: migração, persistência, celular,
+  falha de conexão, edição simultânea, outra conta, sem login.
+- `node e2e/nuvem-supabase.mjs`: o mesmo fluxo com um servidor imitado em memória, mais
+  rápido, incluindo tempo real, editor aberto durante mudança de outro aparelho e sair da
+  conta.
+- `node e2e/nuvem.mjs`: a nuvem do link do claude.ai, com banco imitado.
+
+O que estes testes **não** cobrem: o serviço Supabase de verdade (endereço, e-mail de
+login, Realtime), que precisa ser conferido no site publicado, num computador e num
+celular de verdade, depois da configuração acima.
 
 ## Limites
 
-- Só funciona pelo link do claude.ai, com login. Num site comum (Vercel, arquivo local) o
-  app guarda só no aparelho, como antes. Para outro serviço de nuvem (Supabase, Firebase),
-  só o adaptador `cloud.ts` muda; o motor é o mesmo.
-- Quem tiver o link só para ver (sem poder interagir) não grava na nuvem: o aviso fica em
-  "alterações pendentes".
-- Até 25 mil documentos por link (uma história por documento).
-- As mudanças chegam aos outros aparelhos com o app aberto; com ele fechado, chegam ao abrir.
+- História muito grande (mais de cerca de 200 mil caracteres, contando as versões) sobe
+  sem as versões mais antigas; se nem assim couber, fica só no aparelho e o aviso diz isso.
+- "Restaurar backup → substituir tudo" vale como excluir de vez as histórias que não estão
+  no backup, também na nuvem.

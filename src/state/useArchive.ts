@@ -2,10 +2,17 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { applyMerge, backupFileName, parseBackup, planMerge, serializeBackup, type MergeMode } from '../data/backup'
 import { deleteStory, loadAll, openArquivo, putStories, replaceAll, saveConfig, type Db } from '../data/db'
 import { connectCloud } from '../data/cloud'
-import { newMeta, SyncEngine, type SyncMeta, type SyncStatus } from '../data/sync'
+import { getClient, supabaseAvailable, supabaseRemote, watchAccount } from '../data/supabaseCloud'
+import { newMeta, SyncEngine, type Remote, type SyncMeta, type SyncStatus } from '../data/sync'
 import { DEFAULT_CONFIG, type Config, type Story } from '../data/types'
 
-const OFF: SyncStatus = { state: 'off', pending: 0, conflicts: 0, tooBig: [] }
+const OFF: SyncStatus = { state: 'off', pending: 0, conflicts: 0, tooBig: [], error: null }
+
+/**
+ * Onde fica a nuvem: o Supabase (app publicado, com login por e-mail), o banco do link do
+ * claude.ai, ou nenhuma (só este aparelho).
+ */
+export type CloudAccount = { kind: 'none' } | { kind: 'claude' } | { kind: 'supabase'; email: string | null }
 
 /** O que este aparelho lembra da sincronização, por conta (o conteúdo continua no IndexedDB). */
 function loadMeta(user: string): SyncMeta {
@@ -48,9 +55,18 @@ export function useArchive() {
     setConfigState(c)
   }
 
+  const [account, setAccount] = useState<CloudAccount>({ kind: 'none' })
+
   useEffect(() => {
     let alive = true
     let stopSync = () => {}
+    let stopAccount = () => {}
+    const stopEngine = () => {
+      stopSync()
+      stopSync = () => {}
+      sync.current?.stop()
+      sync.current = null
+    }
     const online = () => void sync.current?.online()
     addEventListener('online', online)
     openArquivo()
@@ -63,32 +79,51 @@ export function useArchive() {
         setStatus({ kind: 'ready' })
         // igual ao original: pede ao navegador para não apagar o armazenamento sozinho
         navigator.storage?.persist?.().catch(() => {})
-        // nuvem: só no link do claude.ai, com a pessoa conectada
+        const startSync = (remote: Remote, key: string) => {
+          stopEngine()
+          const eng = new SyncEngine(
+            remote,
+            {
+              stories: () => storiesRef.current,
+              config: () => cfgRef.current,
+              // o que chega da nuvem é gravado no IndexedDB antes de aparecer
+              apply: async (put, removed) => {
+                if (put.length) await putStories(d, put)
+                for (const id of removed) await deleteStory(d, id)
+                setStories(applyMerge(storiesRef.current, put).filter((s) => !removed.includes(s.id)))
+              },
+              applyConfig: async (cfg) => {
+                const next = { ...DEFAULT_CONFIG, ...cfg }
+                await saveConfig(d, next)
+                setConfig(next)
+              },
+            },
+            loadMeta(key),
+            (m) => saveMeta(key, m),
+          )
+          sync.current = eng
+          stopSync = eng.subscribe(setCloud)
+          // na primeira vez com esta conta, tudo o que só existe aqui sobe (migração)
+          eng.start()
+        }
+        // nuvem do app publicado: Supabase, com a conta de e-mail
+        if (supabaseAvailable()) {
+          setAccount({ kind: 'supabase', email: null })
+          stopAccount = watchAccount(async (acc) => {
+            stopEngine()
+            setCloud(OFF)
+            setAccount({ kind: 'supabase', email: acc?.email ?? null })
+            const client = acc && (await getClient())
+            if (!alive || !acc || !client) return
+            startSync(supabaseRemote(client, acc.id), 'sb:' + acc.id)
+          })
+          return
+        }
+        // nuvem do link do claude.ai, com a pessoa conectada
         const c = await connectCloud()
         if (!alive || !c) return
-        const eng = new SyncEngine(
-          c.remote,
-          {
-            stories: () => storiesRef.current,
-            config: () => cfgRef.current,
-            // o que chega da nuvem é gravado no IndexedDB antes de aparecer
-            apply: async (put, removed) => {
-              if (put.length) await putStories(d, put)
-              for (const id of removed) await deleteStory(d, id)
-              setStories(applyMerge(storiesRef.current, put).filter((s) => !removed.includes(s.id)))
-            },
-            applyConfig: async (cfg) => {
-              const next = { ...DEFAULT_CONFIG, ...cfg }
-              await saveConfig(d, next)
-              setConfig(next)
-            },
-          },
-          loadMeta(c.user),
-          (m) => saveMeta(c.user, m),
-        )
-        sync.current = eng
-        stopSync = eng.subscribe(setCloud)
-        eng.start()
+        setAccount({ kind: 'claude' })
+        startSync(c.remote, c.user)
       })
       .catch((e: Error) => {
         if (alive)
@@ -97,9 +132,8 @@ export function useArchive() {
     return () => {
       alive = false
       removeEventListener('online', online)
-      stopSync()
-      sync.current?.stop()
-      sync.current = null
+      stopAccount()
+      stopEngine()
       db.current?.close()
     }
   }, [])
@@ -166,7 +200,7 @@ export function useArchive() {
     void sync.current?.configChanged()
   }, [])
 
-  return { status, cloud, stories, config, exportBackup, importReplace, importMerge, parseBackup, saveStories, purgeStory, updateConfig }
+  return { status, cloud, account, stories, config, exportBackup, importReplace, importMerge, parseBackup, saveStories, purgeStory, updateConfig }
 }
 
 /** O acervo aberto, compartilhado entre a interface e o livro 3D. */
