@@ -48,5 +48,6 @@ describe('formatação do texto para o livro', () => {
 
   it('texto vazio não quebra nada', () => {
     expect(setStory('', m)).toEqual({ lines: [], drop: undefined })
+    expect(setStory('1, 2, 3 e ação.', m).drop).toBeUndefined()
   })
 })

@@ -23,6 +23,7 @@ step editor-acervo node e2e/fase5.mjs 4173
 step mesa node e2e/mesa.mjs 4173
 step livro node e2e/book.mjs 4173
 step letra-capital node e2e/capital.mjs 4173
+step letra-capital-quadro node e2e/capital-quadro.mjs 4173
 step teclado-recarregar node e2e/audit6.mjs 4173 e2e/out/fase6 keys
 step sem-3d node e2e/audit6.mjs 4173 e2e/out/fase6 nogl
 step telas node e2e/audit6.mjs 4173 e2e/out/fase6 sizes

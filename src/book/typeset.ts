@@ -105,8 +105,9 @@ export function setStory(raw: string, m: SetMetrics): { lines: Line[]; drop?: Dr
     let text = b.text
     let indent = afterBreak ? 0 : m.indent
     if (!drop && !lines.length) {
-      // letra capital: a primeira letra do texto; a pontuação de abertura fica de fora
-      const mt = /^[—“‘(\s]*(\p{L}|\p{N})(\S*)\s*(.*)$/u.exec(text)
+      // letra capital: a primeira letra do texto; a pontuação de abertura fica de fora. Texto que
+      // começa com número ("1, 2, 3 e ação") não tem capital: a vírgula ficaria solta ao lado dela
+      const mt = /^[—“‘(\s]*(\p{L})(\S*)\s*(.*)$/u.exec(text)
       if (mt) {
         drop = { letter: mt[1].toLocaleUpperCase('pt-BR'), lines: DROP_LINES }
         dropW = m.dropWidth(drop.letter)
@@ -116,6 +117,8 @@ export function setStory(raw: string, m: SetMetrics): { lines: Line[]; drop?: Dr
       }
     }
     afterBreak = false
+    // ao lado da capital, os parágrafos seguintes começam rentes a ela, sem recuo
+    if (dropLeft > 0) indent = 0
     const words = text.split(' ').filter(Boolean)
     const start = lines.length
     let line = ''

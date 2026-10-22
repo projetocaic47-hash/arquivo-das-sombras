@@ -2,12 +2,15 @@ import '@fontsource/jersey-10/latin-400.css'
 import '@fontsource/jersey-10/latin-ext-400.css'
 import '@fontsource/jacquarda-bastarda-9/latin-400.css'
 import '@fontsource/jacquarda-bastarda-9/latin-ext-400.css'
+import '@fontsource/cinzel/latin-700.css'
+import '@fontsource/cinzel/latin-ext-700.css'
 import * as THREE from 'three'
 import type { Config } from '../../data/types'
 import type { BookPage, PageMetrics } from '../../book/pages'
 
-// Desenho das páginas do livro em textura, com letra em pixel: Jersey 10 no texto
-// e Jacquarda Bastarda 9 (gótica pixelada) nos títulos, ambas com licença OFL.
+// Desenho das páginas do livro em textura, com letra em pixel: Jersey 10 no texto,
+// Jacquarda Bastarda 9 (gótica pixelada) nos títulos e Cinzel (romana) desenhada em
+// pixels grandes na letra capital, todas com licença OFL.
 
 /** Tamanho da textura de uma página, na proporção da página 3D (0,17 × 0,245 m). */
 export const PW = 400
@@ -17,6 +20,7 @@ const BODY = `"Jersey 10", monospace`
 /** tamanho (px) em que um pixel do desenho da Jersey 10 vira um pixel da textura */
 export const JERSEY_PX = 1400 / 150
 const GOTHIC = `"Jacquarda Bastarda 9", "Jersey 10", serif`
+const CAP = `700 {size}px Cinzel, "Jersey 10", serif`
 const C = { paper: '#ddd2b4', paper2: '#b3a483', ink: '#1c150e', soft: '#463b2c', wine: '#8a3a46', gold: '#9a7a3a' }
 
 export interface PageStyle {
@@ -40,6 +44,7 @@ export function loadPageFonts() {
   fontsReady ??= Promise.all([
     document.fonts.load(`16px ${BODY}`, 'Áá'),
     document.fonts.load(`36px ${GOTHIC}`, 'Áá'),
+    document.fonts.load(CAP.replace('{size}', '60'), 'ÁH'),
   ]).catch(() => undefined)
   return fontsReady
 }
@@ -47,15 +52,92 @@ export function loadPageFonts() {
 const measureCtx = () => document.createElement('canvas').getContext('2d')!
 
 /**
- * Letra capital: gótica, em vinho, da altura de três linhas (do alto das maiúsculas da
- * primeira linha até a base da terceira). Tamanho em múltiplos de 9, a grade da fonte.
+ * Letra capital: romana (Cinzel), em vinho, desenhada em pixels grandes (dois pixels da
+ * Jersey 10 por quadrado), na mesma linguagem de pixel do resto da página. A gótica das
+ * capitais antigas era ilegível em várias letras (A, M, U). Cada letra é medida pelo
+ * próprio desenho e encaixada na caixa da capital: do alto das maiúsculas da primeira
+ * linha até a base da terceira, sem invadir a quarta (letras com perna, como Q, encolhem;
+ * só o acento pode passar um pouco do alto).
  */
-function dropFont(ctx: CanvasRenderingContext2D, st: PageStyle) {
-  const target = 2 * st.line + Math.round(st.font * 0.72)
-  ctx.font = `90px ${GOTHIC}`
-  const ascent = ctx.measureText('H').actualBoundingBoxAscent || 63
-  const size = Math.max(36, Math.round((target * 90) / ascent / 9) * 9)
-  return `${size}px ${GOTHIC}`
+interface CapArt {
+  cols: number
+  rows: number
+  on: Uint8Array
+  block: number
+}
+const capCache = new Map<string, CapArt>()
+/** subpixels por quadrado, para decidir se cada quadrado é tinta ou papel */
+const SUB = 8
+
+function capBox(st: PageStyle) {
+  const block = (2 * st.font) / JERSEY_PX
+  const height = 2 * st.line + Math.round(st.font * 0.72)
+  return { block, rows: Math.max(8, Math.round(height / block)) }
+}
+
+function capArt(letter: string, st: PageStyle): CapArt {
+  const key = `${letter}|${st.font}|${st.line}`
+  const hit = capCache.get(key)
+  if (hit) return hit
+  const { block, rows: capRows } = capBox(st)
+  const c = document.createElement('canvas')
+  const ctx = c.getContext('2d', { willReadFrequently: true })!
+  ctx.font = CAP.replace('{size}', '100')
+  const hA = ctx.measureText('H').actualBoundingBoxAscent || 70
+  const capH = capRows * SUB
+  let size = (100 * capH) / hA
+  ctx.font = CAP.replace('{size}', String(size))
+  let m = ctx.measureText(letter)
+  const wide = ctx.measureText('M')
+  {
+    const a = m.actualBoundingBoxAscent
+    const d = Math.max(0, m.actualBoundingBoxDescent)
+    const w = m.actualBoundingBoxLeft + m.actualBoundingBoxRight
+    const k = Math.min(
+      1,
+      // perna (Q, J): a letra encolhe até a perna caber na caixa
+      d > 0 ? capH / (Math.min(a, capH) + d) : 1,
+      // acento: pode passar um quarto da caixa acima, não mais
+      (capH * 1.25) / Math.max(a, 1),
+      // nada mais largo que um M
+      (wide.actualBoundingBoxLeft + wide.actualBoundingBoxRight) / Math.max(w, 1),
+    )
+    if (k < 1) {
+      size *= k
+      ctx.font = CAP.replace('{size}', String(size))
+      m = ctx.measureText(letter)
+    }
+  }
+  const a = m.actualBoundingBoxAscent
+  const d = Math.max(0, m.actualBoundingBoxDescent)
+  const l = m.actualBoundingBoxLeft
+  const cols = Math.max(1, Math.ceil((l + m.actualBoundingBoxRight) / SUB))
+  const rows = Math.max(1, Math.ceil((a + d) / SUB))
+  c.width = cols * SUB
+  c.height = rows * SUB
+  ctx.font = CAP.replace('{size}', String(size))
+  ctx.fillStyle = '#000'
+  ctx.fillText(letter, l, rows * SUB - d)
+  const px = ctx.getImageData(0, 0, c.width, c.height).data
+  const on = new Uint8Array(cols * rows)
+  for (let r = 0; r < rows; r++)
+    for (let q = 0; q < cols; q++) {
+      let sum = 0
+      for (let y = 0; y < SUB; y++) for (let x = 0; x < SUB; x++) sum += px[((r * SUB + y) * c.width + q * SUB + x) * 4 + 3]
+      on[r * cols + q] = sum >= SUB * SUB * 255 * 0.45 ? 1 : 0
+    }
+  const art = { cols, rows, on, block }
+  capCache.set(key, art)
+  return art
+}
+
+/** Desenha a capital com a base na `bottom` (base da terceira linha). */
+function drawCap(ctx: CanvasRenderingContext2D, letter: string, st: PageStyle, left: number, bottom: number) {
+  const { cols, rows, on, block } = capArt(letter, st)
+  const top = bottom - rows * block
+  for (let r = 0; r < rows; r++)
+    for (let q = 0; q < cols; q++)
+      if (on[r * cols + q]) ctx.fillRect(left + q * block, top + r * block, Math.ceil(block), Math.ceil(block))
 }
 const DROP_GAP = 7
 
@@ -127,8 +209,8 @@ export function pageMetrics(st: PageStyle): PageMetrics {
     },
     indent: Math.round(st.font * 1.6),
     dropWidth: (letter) => {
-      ctx.font = dropFont(ctx, st)
-      return Math.ceil(ctx.measureText(letter).width) + DROP_GAP
+      const a = capArt(letter, st)
+      return Math.ceil(a.cols * a.block) + DROP_GAP
     },
   }
 }
@@ -303,10 +385,10 @@ export function drawPage(
   const body = `${st.font}px ${BODY}`
   const base = (k: number) => y + (k + 1) * st.line - Math.round(st.line * 0.28)
   if (page.drop) {
-    // letra capital: o alto acompanha as maiúsculas da primeira linha, a base senta na linha `lines`
-    ctx.font = dropFont(ctx, st)
+    // letra capital: o alto acompanha as maiúsculas da primeira linha, a base senta na
+    // terceira (mesmo quando o texto é mais curto: a caixa é sempre a mesma)
     ctx.fillStyle = C.wine
-    ctx.fillText(page.drop.letter, left - 1, base(Math.min(page.drop.lines, page.lines.length) - 1))
+    drawCap(ctx, page.drop.letter, st, left, base(page.drop.lines - 1))
   }
   ctx.fillStyle = C.ink
   ctx.font = body
