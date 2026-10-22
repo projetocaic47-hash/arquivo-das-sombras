@@ -173,6 +173,15 @@ function apply() {
   else start()
 }
 
+/**
+ * Onde a gravação dos trovões está agora (segundos), ou null se ela não está tocando
+ * (antes do primeiro gesto, som ou chuva desligados, aba escondida). O relâmpago usa isto.
+ */
+export function thunderPosition(): number | null {
+  if (!active || !thunder || thunder.paused || thunder.readyState < 2) return null
+  return thunder.currentTime
+}
+
 let installed = false
 /** Liga a ambientação ao motor de som (uma vez só, no início do app). */
 export function installAmbient() {
@@ -208,5 +217,7 @@ export function installAmbient() {
         ctx: getAudio()?.ctx.state ?? null,
       }),
       seamless,
+      /** testes: pula a gravação dos trovões para um ponto */
+      seek: (t: number) => thunder && (thunder.currentTime = t),
     }
 }

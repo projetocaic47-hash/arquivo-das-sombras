@@ -121,6 +121,20 @@ const amb = (p) => p.evaluate(() => window.__amb.state())
   check(s3.rainStarts === 1 && s3.thunderTime > s2.thunderTime && !s3.thunderPaused, 'abrir o livro: a chuva continua, sem reiniciar')
   await p.click('.bookbar button:has-text("Fechar")')
   await p.waitForFunction(() => window.__book.cover === 0, null, { timeout: 120000 })
+  // relâmpago sincronizado: leva a gravação para pouco antes do trovão forte de 35,88 s
+  // (pico −6,1 dBFS: perto, o clarão vem ~0,4 s antes do som)
+  await p.evaluate(() => window.__amb.seek(33.5))
+  await p.waitForFunction(() => window.__atmos.synced.some(([, at]) => at === 35.88), null, { timeout: 30000 }).catch(() => {})
+  const sy = (await p.evaluate(() => window.__atmos.synced)).find(([, at]) => at === 35.88)
+  check(!!sy && sy[0] > 35.35 && sy[0] < 35.88, `relâmpago antes do trovão: clarão com a gravação em ${sy ? sy[0].toFixed(2) : '—'} s, trovão em 35,88 s`)
+  const flashes = await p.evaluate(async () => {
+    // quantos clarões entre 35 s e 45 s da gravação (só um trovão forte nesse trecho)
+    window.__amb.seek(36.5)
+    const n0 = window.__atmos.synced.length
+    await new Promise((r) => setTimeout(r, 6000))
+    return window.__atmos.synced.length - n0
+  })
+  check(flashes === 0, `sem trovão forte no trecho seguinte, nenhum clarão sincronizado (${flashes})`)
   // volume da chuva: muda sem reiniciar
   await p.click('.topbar button:has-text("Ajustes")')
   await p.locator('.settings label:has-text("Volume da chuva") input').fill('40')

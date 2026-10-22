@@ -30,6 +30,15 @@ gravações enviadas pela usuária completam o ambiente (abaixo): chuva, trovõe
   um fade, para os arquivos e libera a memória. Aba escondida ou janela minimizada: fade,
   pausa e o áudio dorme; ao voltar, retoma de onde estava.
 
+## Relâmpagos sincronizados (`src/audio/thunderMarks.ts`, `src/scene/atmosphere.ts`)
+
+Com os trovões tocando, o relâmpago da janela pisca pouco antes de cada um dos 12 trovões
+fortes da gravação (a luz chega antes do som): de 0,3 s antes, nos mais fortes e próximos, a
+1,7 s, nos distantes, que também clareiam menos. O ronco contínuo entre eles não gera clarão.
+As marcas vêm de `scripts/trovoes-marcas.py`; refazer se o arquivo de trovões mudar. Sem som
+(antes do primeiro gesto, som ou chuva desligados), os relâmpagos voltam a cair em
+intervalos aleatórios, como antes. Com "reduzir animações", só os trovões mais fortes piscam.
+
 ## Porta (`src/entrance/sound.ts`)
 
 A gravação é só a abertura (rangido contínuo que vai desacelerando em estalos espaçados, sem
