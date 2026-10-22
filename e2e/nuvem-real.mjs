@@ -21,7 +21,7 @@ const check = (ok, msg) => {
 
 const sb = await startMiniSupabase({ port: 54321 })
 // compila com a nuvem apontando para o mini-Supabase (pasta separada: o dist de produção não muda)
-execSync('npx vite build --outDir dist-nuvem --emptyOutDir', { stdio: 'pipe', env: { ...process.env, VITE_SUPABASE_URL: sb.url, VITE_SUPABASE_ANON_KEY: 'chave-publica-de-teste' } })
+execSync('npx vite build --outDir dist-nuvem --emptyOutDir', { stdio: 'pipe', env: { ...process.env, VITE_SUPABASE_URL: sb.url, VITE_SUPABASE_ANON_KEY: 'chave-publica-de-teste', VITE_ACERVO_ABERTO: '' } })
 const web = spawn('npx', ['vite', 'preview', '--outDir', 'dist-nuvem', '--port', '4174', '--strictPort'], { stdio: 'ignore' })
 for (let i = 0; i < 60; i++) {
   try {
@@ -31,7 +31,7 @@ for (let i = 0; i < 60; i++) {
     await new Promise((r) => setTimeout(r, 500))
   }
 }
-const app = 'http://localhost:4174/?debug'
+const app = 'http://localhost:4174/?debug&nuvem'
 const b = await chromium.launch({ args: ['--disable-3d-apis', '--disable-webgl'] })
 const errors = []
 
