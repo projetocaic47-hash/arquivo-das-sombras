@@ -210,7 +210,15 @@ textarea.big { min-height: 260px; font-size: 0.85rem; }
 .cloud-syncing .cloud-dot { background: var(--gold); }
 .cloud-pending .cloud-dot { background: #c07a3a; }
 .cloud-extra { color: var(--gold); }
+.cloud-error .cloud-dot { background: #b44a3a; }
+button.cloud { border: 0; font: inherit; font-size: 0.72rem; cursor: pointer; color: var(--gold); text-decoration: underline dotted; text-underline-offset: 3px; }
 @media (prefers-reduced-motion: no-preference) { .cloud-syncing .cloud-dot { animation: cloud-pulse 1.2s ease-in-out infinite; } }
 @keyframes cloud-pulse { 50% { opacity: 0.35; } }
 /* celular em pé: embaixo fica a nota do backup; o aviso sobe para logo abaixo das fitas */
 @media (max-width: 600px) and (orientation: portrait) { .cloud { top: 52px; bottom: auto; left: 50%; transform: translateX(-50%); white-space: nowrap; } }
+
+/* conta da nuvem nos Ajustes */
+.cloud-account { margin: 14px 0 6px; padding-top: 10px; border-top: 1px solid rgba(154, 122, 58, 0.35); }
+.cloud-account h4 { margin: 0 0 6px; font-size: 0.95rem; letter-spacing: 0.08em; }
+.cloud-account form.row { flex-wrap: wrap; align-items: center; }
+.cloud-account input[type=email], .cloud-account input[inputmode] { flex: 1 1 180px; min-width: 0; }

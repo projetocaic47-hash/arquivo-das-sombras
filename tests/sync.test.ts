@@ -9,6 +9,10 @@ class FakeCloud {
   cfg: CloudConfig | null = null
   offline = false
   writes = 0
+  /** como o Supabase: sem trava; a gravação confere a revisão (put_historia) */
+  cas = false
+  /** chamado depois de cada leitura de história (para simular outro aparelho no meio) */
+  afterGet: (() => void) | null = null
   private watchers = new Set<(l: CloudStory[]) => void>()
   private cfgWatchers = new Set<(c: CloudConfig | null) => void>()
   remote(): Remote {
@@ -22,10 +26,15 @@ class FakeCloud {
       },
       getStory: async (id) => {
         check()
-        return structuredClone(this.stories.get(id) ?? null)
+        const r = structuredClone(this.stories.get(id) ?? null)
+        const f = this.afterGet
+        this.afterGet = null
+        f?.()
+        return r
       },
       putStory: async (c) => {
         check()
+        if (this.cas && (this.stories.get(c.id)?.rev ?? 0) !== c.rev - 1) throw Object.assign(new Error('conflito de revisão'), { code: 'conflict' })
         this.writes++
         this.stories.set(c.id, structuredClone(c))
         const list = [...this.stories.values()].map((x) => structuredClone(x))
@@ -225,4 +234,78 @@ describe('sincronização com a nuvem', () => {
     expect(cloud.stories.has('g')).toBe(false)
     expect(pc.eng.status().tooBig).toEqual(['g'])
   })
+
+  it('banco com revisão conferida na gravação: outro aparelho gravando no meio vira cópia, nada se perde', async () => {
+    const cloud = new FakeCloud()
+    cloud.cas = true
+    const pc = device(cloud, 'pc')
+    pc.eng.start()
+    await pc.save(story('a', 'original'))
+    await settle()
+    // entre a leitura e a gravação do computador, o celular grava a revisão 2
+    cloud.afterGet = () => cloud.stories.set('a', { ...cloud.stories.get('a')!, story: { ...cloud.stories.get('a')!.story!, x: 'do celular' }, rev: 2, dev: 'cel' })
+    await pc.save({ ...pc.stories[0], x: 'do computador' })
+    await settle()
+    expect(cloud.stories.get('a')!.story!.x).toBe('do celular')
+    const textos = pc.stories.map((s) => s.x).sort()
+    expect(textos).toEqual(['do celular', 'do computador'])
+    expect(pc.stories.find((s) => s.x === 'do computador')!.t).toMatch(/cópia em conflito/)
+    expect(pc.eng.status()).toMatchObject({ state: 'saved', conflicts: 1, error: null })
+  })
+
+  it('falha ao enviar: o estado mostra o erro e as mudanças ficam pendentes até a nuvem voltar', async () => {
+    const cloud = new FakeCloud()
+    const pc = device(cloud, 'pc')
+    pc.eng.start()
+    await settle()
+    cloud.offline = true
+    await pc.save(story('a', 'sem internet'))
+    expect(pc.eng.status()).toMatchObject({ state: 'pending', pending: 1, error: 'sem conexão' })
+    cloud.offline = false
+    await pc.eng.online()
+    await settle()
+    expect(pc.eng.status()).toMatchObject({ state: 'saved', pending: 0, error: null })
+    expect(cloud.stories.get('a')!.story!.x).toBe('sem internet')
+  })
+
+  it('migração repetida (recarregar, outro aparelho com a mesma história) não duplica', async () => {
+    const cloud = new FakeCloud()
+    cloud.cas = true
+    const a = device(cloud, 'pc', [story('h', 'mesmo texto')])
+    a.eng.start()
+    await settle()
+    // outro navegador com a mesma história antiga, nunca sincronizado
+    const b = device(cloud, 'cel', [story('h', 'mesmo texto')])
+    b.eng.start()
+    await settle()
+    // e o primeiro "recarrega" do zero (memória da sincronização perdida)
+    const a2 = device(cloud, 'pc2', [story('h', 'mesmo texto')])
+    a2.eng.start()
+    await settle()
+    expect(cloud.stories.size).toBe(1)
+    expect(b.stories.length).toBe(1)
+    expect(a2.stories.length).toBe(1)
+    expect(cloud.stories.get('h')!.rev).toBe(1)
+  })
+
+  it('resposta atrasada de uma leitura antiga não volta a história para trás', async () => {
+    const cloud = new FakeCloud()
+    cloud.cas = true
+    const pc = device(cloud, 'pc')
+    pc.eng.start()
+    await pc.save(story('a', 'um'))
+    await settle()
+    const velha = structuredClone(cloud.stories.get('a')!)
+    await pc.save({ ...pc.stories[0], x: 'dois' })
+    await settle()
+    // chega agora a lista lida antes da segunda gravação
+    ;(pc.eng as unknown as { incoming(l: CloudStory[]): Promise<void> }).incoming([velha])
+    await settle()
+    expect(pc.stories[0].x).toBe('dois')
+    await pc.save({ ...pc.stories[0], x: 'três' })
+    await settle()
+    expect(pc.eng.status()).toMatchObject({ state: 'saved', conflicts: 0 })
+    expect(cloud.stories.get('a')!.story!.x).toBe('três')
+  })
 })
+

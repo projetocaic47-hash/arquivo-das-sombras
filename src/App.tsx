@@ -17,6 +17,7 @@ import { Reader } from './ui/Reader'
 import { clearHover } from './scene/hover'
 import { hasWebGL, SceneBoundary } from './ui/SceneBoundary'
 import { Settings } from './ui/Settings'
+import { cloudLabel } from './ui/cloudLabel'
 import type { Ui } from './ui/ui'
 
 // A cena 3D (three.js) é o maior pedaço do app; carregá-la à parte deixa a interface aparecer primeiro.
@@ -60,25 +61,39 @@ type Screen =
   | { k: 'read'; id: string }
 
 /** Aviso discreto de onde as histórias estão guardadas. */
-function CloudBadge({ s }: { s: Archive['cloud'] }) {
-  const text = { off: 'só neste aparelho', syncing: 'salvando na nuvem…', saved: 'salvo na nuvem', pending: 'alterações pendentes' }[s.state]
+function CloudBadge({ s, acc, onLogin }: { s: Archive['cloud']; acc: Archive['account']; onLogin: () => void }) {
+  const text = cloudLabel(s, acc)
+  const login = s.state === 'off' && acc.kind === 'supabase' && !acc.email
   const help = {
-    off: 'As histórias ficam guardadas neste navegador. A nuvem funciona quando o app é aberto pelo link do claude.ai, com a sua conta.',
+    off: login
+      ? 'As histórias estão guardadas só neste navegador. Entre com o seu e-mail (em Ajustes) para guardá-las na nuvem e vê-las em qualquer aparelho.'
+      : 'As histórias ficam guardadas neste navegador. A nuvem não está configurada neste endereço.',
     syncing: 'Enviando as últimas mudanças.',
-    saved: 'Tudo guardado neste aparelho e na nuvem. Abra o mesmo link com a sua conta em outro aparelho para continuar de lá.',
-    pending: `${s.pending} ${s.pending === 1 ? 'mudança espera' : 'mudanças esperam'} a conexão. Estão guardadas neste aparelho e sobem sozinhas quando a nuvem responder.`,
+    saved: 'Tudo guardado neste aparelho e na nuvem. Entre com a mesma conta em outro aparelho para continuar de lá.',
+    pending: `${s.pending} ${s.pending === 1 ? 'mudança espera' : 'mudanças esperam'} a nuvem. Estão guardadas neste aparelho e sobem sozinhas quando a nuvem responder.${s.error ? ` (Último erro: ${s.error}.)` : ''}`,
   }[s.state]
   const extra = [
     s.conflicts ? `${s.conflicts} ${s.conflicts === 1 ? 'cópia em conflito criada' : 'cópias em conflito criadas'}` : '',
     s.tooBig.length ? `${s.tooBig.length} ${s.tooBig.length === 1 ? 'história grande demais fica' : 'histórias grandes demais ficam'} só aqui` : '',
   ].filter(Boolean)
-  return (
-    <p className={'cloud cloud-' + s.state} role="status" title={help + (s.conflicts ? ' Quando a mesma história muda em dois aparelhos ao mesmo tempo, nada é sobrescrito: a outra versão vira uma cópia "(cópia em conflito)" no Acervo.' : '')}>
+  const cls = 'cloud cloud-' + (s.error && s.state === 'pending' ? 'error' : s.state) + (login ? ' cloud-login' : '')
+  const title = help + (s.conflicts ? ' Quando a mesma história muda em dois aparelhos ao mesmo tempo, nada é sobrescrito: a outra versão vira uma cópia "(cópia em conflito)" no Acervo.' : '')
+  const body = (
+    <>
       <span className="cloud-dot" aria-hidden="true" />
       {text}
       {extra.map((x) => (
         <span key={x} className="cloud-extra"> · {x}</span>
       ))}
+    </>
+  )
+  return login ? (
+    <button className={cls} title={title} onClick={onLogin}>
+      {body}
+    </button>
+  ) : (
+    <p className={cls} role="status" title={title}>
+      {body}
     </p>
   )
 }
@@ -356,7 +371,7 @@ export function App() {
         acendendo a vela…
       </div>
       {archive.status.kind === 'error' && <p className="warnbar">{archive.status.message}</p>}
-      {entered && !bk.reading && <CloudBadge s={archive.cloud} />}
+      {entered && !bk.reading && <CloudBadge s={archive.cloud} acc={archive.account} onLogin={() => setScreen({ k: 'settings' })} />}
       {toast && (
         <p className="toast" role="status">
           {toast}

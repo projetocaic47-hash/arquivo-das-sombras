@@ -161,15 +161,15 @@ console.log('OK    história escrita no celular apareceu no computador')
 // 4. celular sem internet: fica pendente, guardada no aparelho, e sobe quando volta
 offline.add('cel')
 await write(cel, 'Escrita sem internet', 'No metrô.')
-await waitBadge(cel, /pendentes/)
-check(/pendentes/.test(await badge(cel)), 'sem internet o aviso diz "alterações pendentes": ' + (await badge(cel)))
+await waitBadge(cel, /pendentes|erro ao salvar na nuvem/)
+check(/pendentes|erro ao salvar na nuvem/.test(await badge(cel)), 'sem internet o aviso diz que não salvou na nuvem: ' + (await badge(cel)))
 check(!cloudStories().some((c) => c.story?.t === 'Escrita sem internet'), 'nada foi para a nuvem enquanto estava sem internet')
 check((await local(cel)).some((s) => s.t === 'Escrita sem internet'), 'a história ficou guardada no celular')
 await cel.p.screenshot({ path: `${out}/cel-2-pendente.png` })
 // recarregar ainda sem internet: a fila não se perde
 await cel.p.reload()
 await cel.p.waitForSelector('.cloud', { timeout: 120000 })
-await waitBadge(cel, /pendentes/)
+await waitBadge(cel, /pendentes|erro ao salvar na nuvem/)
 check(true, 'depois de recarregar sem internet, a mudança continua pendente')
 offline.delete('cel')
 await cel.p.evaluate(() => dispatchEvent(new Event('online')))
@@ -183,11 +183,12 @@ const tab = await device('tablet', { width: 820, height: 1180 })
 await waitLocal(tab, (l) => ['A história que já existia', 'Escrita no celular', 'Escrita sem internet'].every((t) => l.some((s) => s.t === t)), 'terceiro aparelho recuperou as três histórias')
 console.log('OK    terceiro aparelho recuperou as três histórias')
 
-// 6. fora do claude.ai (sem nuvem): o app avisa que guarda só neste aparelho
+// 6. fora do claude.ai: com o Supabase no build, convida a entrar; sem ele, só neste aparelho
 const plain = await b.newPage({ viewport: { width: 1000, height: 700 } })
 await plain.goto(`http://localhost:${port}/?debug`)
 await plain.waitForSelector('.cloud', { timeout: 120000 })
-check(/só neste aparelho/.test(await plain.textContent('.cloud')), 'sem a nuvem do claude.ai: "só neste aparelho"')
+const fora = await plain.textContent('.cloud')
+check(/só neste aparelho|entrar para salvar na nuvem/.test(fora), 'fora do claude.ai: "' + fora + '"')
 
 check(!errors.length, 'sem erros no console' + (errors.length ? ': ' + errors.join(' | ') : ''))
 await b.close()

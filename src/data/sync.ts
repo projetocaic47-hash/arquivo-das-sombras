@@ -76,6 +76,8 @@ export interface SyncStatus {
   conflicts: number
   /** histórias que não cabem num documento da nuvem (ficam só neste aparelho) */
   tooBig: string[]
+  /** a última tentativa de enviar falhou (sem internet, sessão expirada, serviço fora) */
+  error: string | null
 }
 
 /** Limite de um documento da nuvem é 256 KiB; fica uma folga. */
@@ -115,6 +117,7 @@ export class SyncEngine {
   private timer: ReturnType<typeof setTimeout> | null = null
   private busy = 0
   private conflicts = 0
+  private lastError: string | null = null
   private tooBig = new Set<string>()
   private listeners = new Set<(s: SyncStatus) => void>()
   private started = false
@@ -144,7 +147,7 @@ export class SyncEngine {
   status(): SyncStatus {
     const pending = this.meta.dirty.length + this.meta.purged.length + (this.meta.cfgDirty ? 1 : 0)
     const state: SyncState = !this.started ? 'off' : this.busy ? 'syncing' : pending ? 'pending' : 'saved'
-    return { state, pending, conflicts: this.conflicts, tooBig: [...this.tooBig] }
+    return { state, pending, conflicts: this.conflicts, tooBig: [...this.tooBig], error: pending ? this.lastError : null }
   }
 
   private emit() {
@@ -230,10 +233,20 @@ export class SyncEngine {
     return this.run(async () => {
       try {
         for (const id of [...this.meta.purged]) await this.pushPurge(id)
-        for (const id of [...this.meta.dirty]) await this.pushStory(id)
+        for (const id of [...this.meta.dirty]) {
+          try {
+            await this.pushStory(id)
+          } catch (e) {
+            // outro aparelho gravou entre a leitura e a gravação: lê de novo (e cria a cópia)
+            if ((e as { code?: string }).code !== 'conflict') throw e
+            await this.pushStory(id)
+          }
+        }
         if (this.meta.cfgDirty) await this.pushConfig()
         this.retry = 0
-      } catch {
+        this.lastError = null
+      } catch (e) {
+        this.lastError = (e as Error)?.message || 'falha ao enviar'
         this.later()
       }
     })
@@ -359,7 +372,10 @@ export class SyncEngine {
     for (const c of list) {
       // mudança daqui ainda não enviada: o envio decide (e detecta o conflito)
       if (this.meta.dirty.includes(c.id) || this.meta.purged.includes(c.id)) continue
-      if (this.meta.base[c.id] === c.rev) continue
+      // já visto, ou resposta atrasada de uma leitura anterior (revisão mais velha que a
+      // conhecida): não volta o aparelho para trás
+      const known = this.meta.base[c.id]
+      if (known !== undefined && c.rev <= known) continue
       const mine = locals.get(c.id)
       if (c.gone) {
         if (mine) removed.push(c.id)

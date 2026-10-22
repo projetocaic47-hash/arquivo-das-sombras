@@ -1,8 +1,10 @@
-import { useRef, useSyncExternalStore } from 'react'
+import { useRef, useState, useSyncExternalStore } from 'react'
 import { getSoundPrefs, onSoundPrefs, setSoundPrefs, sfx } from '../audio/sfx'
 import { dateBR, stats } from '../data/stories'
 import type { Archive } from '../state/useArchive'
+import { sendLoginLink, signOut, verifyLoginCode } from '../data/supabaseCloud'
 import { makeBackup } from './backupFlow'
+import { cloudLabel } from './cloudLabel'
 import type { Ui } from './ui'
 
 /** Ajustes do acervo, como openSet do original. */
@@ -81,20 +83,110 @@ export function Settings({ archive: a, ui, onClose }: { archive: Archive; ui: Ui
         />
       </label>
 
+      <CloudAccount a={a} ui={ui} />
+
       <div className="row">
         <button onClick={() => makeBackup(a, ui)}>Backup do acervo</button>
         <button onClick={() => ui.pickBackup()}>Restaurar backup</button>
         <button onClick={() => ui.paste()}>Colar backup</button>
         <button onClick={onClose}>fechar</button>
       </div>
-      <p className="small">
-        Os textos ficam guardados apenas neste navegador e neste aparelho (IndexedDB). Limpar os dados do navegador pode apagar o acervo. Faça backups
-        com frequência e guarde o arquivo em outro lugar.
-      </p>
+      {a.cloud.state === 'off' ? (
+        <p className="small">
+          Os textos ficam guardados apenas neste navegador e neste aparelho (IndexedDB). Limpar os dados do navegador pode apagar o acervo. Faça backups
+          com frequência e guarde o arquivo em outro lugar.
+        </p>
+      ) : (
+        <p className="small">
+          Os textos ficam guardados na nuvem e, como cópia para usar sem internet, neste navegador. O backup continua sendo uma boa cópia extra.
+        </p>
+      )}
       <p className="small">
         {st.visible} histórias · {st.words} palavras · {st.drafts} rascunhos · última edição {st.lastEdit ? dateBR(st.lastEdit) : '—'} · último backup{' '}
         {c.lb ? dateBR(c.lb) : 'nunca'}
       </p>
     </section>
+  )
+}
+
+/** Conta da nuvem (Supabase): entrar com o e-mail, ver o estado, sair. */
+function CloudAccount({ a, ui }: { a: Archive; ui: Ui }) {
+  const acc = a.account
+  const [email, setEmail] = useState('')
+  const [sent, setSent] = useState('')
+  const [code, setCode] = useState('')
+  const [busy, setBusy] = useState(false)
+  const [err, setErr] = useState('')
+  if (acc.kind !== 'supabase') return null
+  const run = async (f: () => Promise<void>) => {
+    setBusy(true)
+    setErr('')
+    try {
+      await f()
+    } catch (e) {
+      setErr((e as Error).message)
+    } finally {
+      setBusy(false)
+    }
+  }
+  if (acc.email)
+    return (
+      <div className="cloud-account">
+        <h4>Nuvem</h4>
+        <p className="small">
+          Conectado como <b>{acc.email}</b> · <span data-testid="settings-cloud">{cloudLabel(a.cloud, acc)}</span>
+        </p>
+        <p className="small">Entre com este mesmo e-mail no celular ou em outro computador para ver e editar as mesmas histórias.</p>
+        <div className="row">
+          <button
+            disabled={busy}
+            onClick={() =>
+              run(async () => {
+                if (a.cloud.pending && (await ui.ask(`Ainda há ${a.cloud.pending} mudança(s) esperando a nuvem. Elas continuam guardadas neste aparelho e sobem quando você entrar de novo. Sair mesmo assim?`, ['sair', 'ficar'])) !== 0) return
+                await signOut()
+              })
+            }
+          >
+            sair da conta
+          </button>
+        </div>
+      </div>
+    )
+  return (
+    <div className="cloud-account">
+      <h4>Nuvem</h4>
+      <p className="small">Entre com o seu e-mail para guardar as histórias na nuvem e vê-las em qualquer aparelho. As que já estão aqui sobem sozinhas, sem apagar nada.</p>
+      {!sent ? (
+        <form
+          className="row"
+          onSubmit={(e) => {
+            e.preventDefault()
+            const m = email.trim()
+            if (m) void run(async () => (await sendLoginLink(m), setSent(m)))
+          }}
+        >
+          <input type="email" required autoComplete="email" placeholder="seu e-mail" aria-label="E-mail" value={email} onChange={(e) => setEmail(e.target.value)} />
+          <button disabled={busy}>enviar link de acesso</button>
+        </form>
+      ) : (
+        <form
+          className="row"
+          onSubmit={(e) => {
+            e.preventDefault()
+            if (code.trim()) void run(() => verifyLoginCode(sent, code.trim()))
+          }}
+        >
+          <p className="small">
+            Enviamos um e-mail para <b>{sent}</b>. Toque no link do e-mail neste aparelho, ou digite aqui o código que veio nele.
+          </p>
+          <input inputMode="numeric" autoComplete="one-time-code" placeholder="código" aria-label="Código do e-mail" value={code} onChange={(e) => setCode(e.target.value)} />
+          <button disabled={busy}>entrar</button>
+          <button type="button" onClick={() => (setSent(''), setCode(''))}>
+            outro e-mail
+          </button>
+        </form>
+      )}
+      {err && <p className="warn">Não foi possível: {err}</p>}
+    </div>
   )
 }
